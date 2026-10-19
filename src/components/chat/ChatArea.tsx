@@ -798,6 +798,7 @@ export function ChatArea(props: ChatAreaProps) {
           agentDropdownOpen={props.agentDropdownOpen}
           onToggleAgentDropdown={props.onToggleAgentDropdown}
           onSetChatAgents={(props as any).onSetChatAgents}
+          onRemoveNodes={(props as any).onRemoveNodes}
           onRefreshAgents={(props as any).onRefreshAgents}
           agents={props.agents}
           selectedAgentIds={props.selectedAgentIds}

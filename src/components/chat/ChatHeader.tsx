@@ -505,38 +505,9 @@ export function ChatHeader(props: ChatHeaderProps) {
               </button>
               <button
                   onClick={async () => {
-                    const fn = (window as any).__quinkiRemoveNode
-                    if (confirmDelete === 'selected') {
-                      const ids = Array.from(selectedForRemoval)
-                      // Lista agenti AUTOREVOLE (dal motore), poi UNA SOLA scrittura
-                      let cur: string[] = String((props as any).session?.agentId || '').split(',').filter(Boolean)
-                      try {
-                        const r: any = await rpc('listSessions', {})
-                        const sk = String((props as any).session?.id || '')
-                        const s2 = (r?.sessions || []).find((x: any) => x.key === sk)
-                        if (s2) cur = String(s2.agentId || '').split(',').filter(Boolean)
-                      } catch {}
-                      const notInChat = ids.filter((x: string) => !cur.includes(x))
-                      let next = cur.filter((x: string) => !ids.includes(x))
-                      if (next.length === 0) next = [cur[0]] // unica protezione: la chat non resta vuota
-                      try { await (props as any).onSetChatAgents?.(next) } catch {}
-                      // Pulisci l'ALBERO della chat da tutti i rimossi (se no il picker li crede presenti)
-                      try {
-                        const sk = String((props as any).session?.id || '')
-                        const r2: any = await rpc('listSessions', {})
-                        const s3 = (r2?.sessions || []).find((x: any) => x.key === sk)
-                        const t: Record<string, string[]> = { ...((s3?.delegateTree) || {}) }
-                        for (const k of Object.keys(t)) t[k] = (t[k] || []).filter((x: string) => !ids.includes(x))
-                        await rpc('setSessionDelegateTree', { sessionKey: sk, tree: t })
-                      } catch {}
-                      for (const id of notInChat) { try { await (fn ? fn(id) : Promise.resolve()) } catch {} }
-                      try { await (window as any).__quinkiRefresh?.() } catch {}
-                      setSelectedForRemoval(new Set()); setMultiSelect(false)
-                    } else {
-                      try { await (fn ? fn(confirmDelete) : props.onAgentToggle(confirmDelete)) } catch {}
-                      try { await (window as any).__quinkiRefresh?.() } catch {}
-                    }
-                    setConfirmDelete(null)
+                    const ids = confirmDelete === 'selected' ? Array.from(selectedForRemoval) : [confirmDelete]
+                    try { await (props as any).onRemoveNodes?.(ids) } catch {}
+                    setSelectedForRemoval(new Set()); setMultiSelect(false); setConfirmDelete(null)
                   }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}

@@ -302,52 +302,9 @@ export function AgentGraphSheet(props: Props) {
    *  - se era l'orchestrator: il ruolo si azzera (NESSUN automatismo)
    */
   const removeNode = async (id: string) => {
-    dlog('remove-start', { id, inChat: chatIds.includes(id), tree, chatIds, stack: (new Error().stack || '').split('\n').slice(1, 5) })
-    const inChat = chatIds.includes(id)
-    // ══ REGOLA CRITICA: se l'agente è IN CHAT si toglie SOLO dalla chat.
-    // Le `delegates` sono GLOBALI (condivise da tutte le chat): toccarle qui
-    // cambierebbe anche le altre chat!
-    // Esce dall'ALBERO e dalla CHAT (sono la stessa cosa: tutti i nodi sono agenti della chat)
-    const tree2: Record<string, string[]> = {}
-    for (const [pid, kids] of Object.entries(tree)) tree2[pid] = (kids || []).filter((x: string) => x !== id)
-    const nextChat = chatIds.filter((x: string) => x !== id)
-    await saveChat({ agentIds: nextChat.length ? nextChat : chatIds.slice(0, 1), orchestratorId: orchId === id ? '' : orchId, delegateTree: tree2 })
-    if (inChat) return
-    const kids: string[] = (delegateTree[id] || [])
-    // 1) sostituisci il nodo con i suoi figli, in ogni padre che lo contiene
-    for (const pid of Object.keys(byId)) {
-      const cur: string[] = (delegateTree[pid] || [])
-      if (!cur.includes(id)) continue
-      const next = [...new Set([...cur.filter(x => x !== id), ...kids])]
-      const t2 = { ...tree, [pid]: next };
-      await saveTree(t2)
-    }
-    // 2) se era in chat: lo toglie con il percorso ORIGINALE dell'app
-    if (inChat) {
-      try { props.onToggleChatAgent(id) } catch {}
-    }
-    // 3) se era l'orchestrator: i figli diventano agenti di primo livello e lui
-    //    resta senza sub-agent → il ruolo NON viene riassegnato in automatico.
-    if (id === orchId) {
-      try {
-        await saveTree({ ...tree, [id]: [] })
-        await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
-      } catch {}
-    }
-    const [fresh] = await Promise.all([reloadAgents(), reloadOrch()])
-    // Se è rimasto UN SOLO nodo (un agente senza sub-agent) il ruolo non serve più.
-    try {
-      const sess: any = await rpc('listSessions', {})
-      const s2 = (sess?.sessions || []).find((x: any) => x.key === props.sessionKey)
-      const ids = String(s2?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
-      const only = ids.length === 1 ? ids[0] : null
-      const list = fresh || localAgents
-      const kids = only ? (tree[only] || []) : []
-      if (only && kids.length === 0 && s2?.orchestratorId) {
-        await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
-        setLocalOrch('')
-      }
-    } catch {}
+    dlog('remove-start', { id, chatIds, tree })
+    try { await (props as any).onRemoveNodes?.([id]) } catch {}
+    await Promise.all([reloadAgents(), reloadOrch()])
   }
 
   /** Porta un agente (di qualsiasi livello) a orchestrator: lo stacca dal padre,
@@ -367,11 +324,6 @@ export function AgentGraphSheet(props: Props) {
   }
 
   // La conferma ORIGINALE (in ChatHeader) deve usare la rimozione con promozione dei figli.
-  useEffect(() => {
-    (window as any).__quinkiRemoveNode = removeNode
-    (window as any).__quinkiRefresh = async () => { try { await Promise.all([reloadAgents(), reloadOrch()]) } catch {} }
-    return () => { try { delete (window as any).__quinkiRemoveNode } catch {} }
-  })
 
   const edges: { from: TNode; to: TNode }[] = []
   for (const n of laid.nodes) for (const c of n.children) edges.push({ from: n, to: c })
