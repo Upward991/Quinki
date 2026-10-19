@@ -6459,8 +6459,9 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               }
               // Add mode note (same as #applyMode)
               // Delega: anche il DELEGATO conosce tutto il suo sottoalbero (dinamico).
+              let subTreeNote = "";
               if (typeof base === "string" && base.length > 0) {
-                try { base = base + self.#delegationTreeNote(targetId, chatAgentsForTarget, false); } catch {}
+                try { subTreeNote = self.#delegationTreeNote(targetId, chatAgentsForTarget, false); base = base + subTreeNote; } catch {}
               }
               if (typeof base === "string" && base.length > 0 && note) {
                 const planIdx = base.indexOf("\n\nSei in MODALITÀ PIANO");
@@ -6519,7 +6520,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                 }
               } catch {}
               self.logDebug("delegate-system-prompt-built", { sessionKey, mode: mainMode, promptLen: base?.length || 0, hasModeNote: base?.includes("MODALITÀ"), hasSkills: base?.includes("available_skills"), hasAgentPrompt: (base?.length || 0) > 100 });
-              self.logDebug("system_prompt", { sessionKey: tempKey, len: base?.length || 0, hasSkills: (base?.includes("USER ACTIVATED SKILL") || false), skills: pendingSkills ? pendingSkills.filter((p: any) => p.agentId === targetId).map((p: any) => p.skillName) : [], agentId: targetId, agentName: agent_name, isDelegation: true, isOrchestrator: false, delegatedBy: sessionKey, messageText: (task || "").substring(0, 200), prompt: base || "" });
+              self.logDebug("system_prompt", { sessionKey: tempKey, delegationTree: (subTreeNote || null)?.slice?.(0, 300) || null, len: base?.length || 0, hasSkills: (base?.includes("USER ACTIVATED SKILL") || false), skills: pendingSkills ? pendingSkills.filter((p: any) => p.agentId === targetId).map((p: any) => p.skillName) : [], agentId: targetId, agentName: agent_name, isDelegation: true, isOrchestrator: false, delegatedBy: sessionKey, messageText: (task || "").substring(0, 200), prompt: base || "" });
             } catch (e2: any) { self.logDebug("delegate-system-prompt-error", { sessionKey, error: e2?.message }); }
             self.logDebug("delegate-apply-mode", { sessionKey, mode: mainMode, agentId: targetId, toolCount: tempToolNames.length, tools: tempToolNames });
           } catch (e: any) { self.logDebug("delegate-apply-mode-error", { sessionKey, error: e?.message }); }
