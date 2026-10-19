@@ -56,10 +56,18 @@ type TNode = { id: string; agent: any; depth: number; x: number; y: number; chil
 export function AgentGraphSheet(props: Props) {
   const { call } = useSidecarContext()
   // Canale RPC: preferiamo quello GLOBALE dell'app (sempre presente), con fallback al context.
-  const rpc = (m: string, p: any) => {
-    const w = (window as any).__sidecarCall
-    if (typeof w === 'function') return Promise.resolve(w(m, p))
-    return Promise.resolve(call ? call(m, p) : null)
+  /** RPC robusta: se il motore non è ancora connesso (boot) riprova, e logga l'errore.
+   *  Prima l'errore era inghiottito: il primo Add su una chat "non faceva niente". */
+  const rpc = async (m: string, p: any) => {
+    for (let i = 0; i < 4; i++) {
+      try {
+        const w = (window as any).__sidecarCall
+        const r = typeof w === 'function' ? await w(m, p) : (call ? await call(m, p) : null)
+        if (r !== null && r !== undefined) return r
+      } catch (e: any) { dlog('rpc-error', { m, err: String(e?.message || e) }) }
+      await new Promise((r) => setTimeout(r, 350))
+    }
+    return null
   }
   const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked, delegateTree = {} } = props
 
