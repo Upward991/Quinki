@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain, RefreshCw } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
-import { AgentPickerModal } from '../chat/ChatHeader'
+import { AgentPickerModal } from '../chat/AgentPickerModal'
 
 /**
  * AgentGraphSheet — il grafo degli agenti della chat, a schermo intero.
@@ -321,7 +321,10 @@ export function AgentGraphSheet(props: Props) {
           onClose={() => setSubFor(null)}
           onAdd={async (ids: string[]) => {
             const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
-            try { await rpc('updateAgent', { id: subFor, config: { delegates: [...cur, ...ids] } }) } catch (e) {}
+            try {
+              const res: any = await rpc('updateAgent', { id: subFor, config: { delegates: [...cur, ...ids] } })
+              if (res && res.success === false) alert('Add sub agent failed: ' + (res.error || 'unknown'))
+            } catch (e: any) { alert('Add sub agent failed: ' + (e?.message || String(e))) }
             // REGOLA (19 ott): chi riceve un sub-agent diventa l'orchestrator della chat
             // se non ce n'è ancora uno (poi si può cambiare col tasto destro).
             if (!orchId) { try { props.onSetOrchestrator(subFor) } catch {} }
@@ -339,7 +342,12 @@ export function AgentGraphSheet(props: Props) {
           title="Change agent"
           single
           onClose={() => setChangeFor(false)}
-          onAdd={(ids: string[]) => { if (ids[0]) props.onChangeAgent(ids[0]); setChangeFor(false) }}
+          onAdd={(ids: string[]) => {
+            if (ids[0]) {
+              try { props.onChangeAgent(ids[0]) } catch (e: any) { alert('Change agent failed: ' + (e?.message || String(e))) }
+            }
+            setChangeFor(false)
+          }}
         />
       )}
     </div>
