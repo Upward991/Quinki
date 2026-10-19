@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain, RefreshCw, ChevronLeft, ChevronRight } from '../icons'
+import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain, RefreshCw, ChevronLeft, ChevronRight, Menu } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import { AgentPickerModal } from '../chat/AgentPickerModal'
+import { BottomSheet } from '../chat/BottomSheet'
+import { useLayout } from '../../platform/layout'
 
 /**
  * AgentGraphSheet — il grafo degli agenti della chat, a schermo intero.
@@ -139,6 +141,31 @@ export function AgentGraphSheet(props: Props) {
   const [tree, setTree] = useState<Record<string, string[]>>(delegateTree || EMPTY_TREE)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const mob = useLayout().mode === 'mobile'
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const zoomRef = useRef(zoom); zoomRef.current = zoom
+  const pinchRef = useRef<{ d0: number; z0: number } | null>(null)
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const [a, b] = [e.touches[0], e.touches[1]]
+      pinchRef.current = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, z0: zoomRef.current }
+    }
+  }
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 2 || !pinchRef.current) return
+    e.preventDefault()
+    const [a, b] = [e.touches[0], e.touches[1]]
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1
+    const ratio = d / pinchRef.current.d0
+    const z0 = zoomRef.current
+    const next = Math.min(MAX_Z, Math.max(MIN_Z, pinchRef.current.z0 * ratio))
+    const rect = viewRef.current?.getBoundingClientRect()
+    const mx = (a.clientX + b.clientX) / 2 - (rect?.left || 0)
+    const my = (a.clientY + b.clientY) / 2 - (rect?.top || 0)
+    setPan(p => ({ x: mx - (mx - p.x) * (next / z0), y: my - (my - p.y) * (next / z0) }))
+    setZoom(next)
+  }
+  const onTouchEnd = () => { if (pinchRef.current) pinchRef.current = null }
   useEffect(() => { if (Array.isArray(chatAgentIds) && chatAgentIds.length) setLocalChatIds(chatAgentIds) }, [chatAgentIds])
   // FONTE VERA: l'app può avere la lista vecchia; il motore no.
   const chatIds = localChatIds.length ? localChatIds : chatAgentIds
@@ -339,6 +366,15 @@ export function AgentGraphSheet(props: Props) {
     <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
       {/* heading — pannelli flottanti, larghezza standard */}
       <div style={{ flexShrink: 0, marginBottom: 8, paddingBottom: 6, width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
+        {mob ? (
+          <div style={{ ...panelStyle, width: '100%' }}>
+            <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={20} /></IconBtn>
+            <div style={{ width: 12, flexShrink: 0 }} />
+            <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Agents in chat</span>
+            <div style={{ flex: 1 }} />
+            <IconBtn title="Menu" onClick={() => setSheetOpen(true)}><Menu size={20} /></IconBtn>
+          </div>
+        ) : (
         <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
           <div style={panelStyle}>
             <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={20} /></IconBtn>
@@ -379,11 +415,13 @@ export function AgentGraphSheet(props: Props) {
             <IconBtn title="Fit to screen" onClick={fit}><Maximize size={16} /></IconBtn>
           </div>
         </div>
+        )}
       </div>
 
       {/* tela */}
       <div ref={viewRef} onWheel={onWheel} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
-        style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', cursor: dragRef.current ? 'grabbing' : 'default' }}>
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}
+        style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', touchAction: 'none', cursor: dragRef.current ? 'grabbing' : 'default' }}>
         {laid.nodes.length === 0 ? (
           <div style={{ padding: 40, color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>No agents in this chat.</div>
         ) : (
@@ -468,6 +506,19 @@ export function AgentGraphSheet(props: Props) {
           </div>
         )}
       </div>
+
+      {/* MOBILE: tutte le opzioni della testata in un menu dal basso */}
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        items={[
+          { icon: <ChevronLeft size={18} />, label: canUndo ? 'Undo' : 'Undo (nothing to undo)', onSelect: () => { setSheetOpen(false); if (canUndo) void graphStep('undo') } },
+          { icon: <ChevronRight size={18} />, label: canRedo ? 'Redo' : 'Redo (nothing to redo)', onSelect: () => { setSheetOpen(false); if (canRedo) void graphStep('redo') } },
+          { icon: <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>, label: `Zoom in (${pct}%)`, onSelect: () => setZoom(z => Math.min(MAX_Z, z * 1.15)) },
+          { icon: <span style={{ fontSize: 16, lineHeight: 1 }}>−</span>, label: 'Zoom out', onSelect: () => setZoom(z => Math.max(MIN_Z, z * 0.87)) },
+          { icon: <Maximize size={18} />, label: 'Fit to screen', onSelect: () => { setSheetOpen(false); fit() } },
+        ]}
+      />
 
       {/* Picker ORIGINALE della chat (stessa grafica): sub agent */}
       {subFor && (
