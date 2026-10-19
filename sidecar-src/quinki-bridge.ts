@@ -5463,6 +5463,37 @@ Read this file to view it.` }] };
     this.logDebug("apply-mode", { sessionKey: key, mode: m, toolCount: names.length, tools: names });
   }
 
+  /**
+   * Delega — ALBERO DINAMICO (19 ott). Ogni agente deve SAPERE tutto il suo
+   * sottoalbero (per sapere cosa chiedere a chi e riportare la risposta a cascata),
+   * ma può delegare SOLO ai suoi riporti diretti (primo livello).
+   * Rigenerato a ogni prompt: se aggiungi/togli deleghe, il modello lo sa subito.
+   */
+  #delegationTreeNote(agentId: string, chatAgents: string[], isOrch: boolean): string {
+    const nameOf = (id: string) => { try { return this.#readAgentConfig(id)?.name || id; } catch { return id; } };
+    const lines: string[] = [];
+    const seen = new Set<string>([agentId]);
+    const walk = (id: string, depth: number, isRoot: boolean) => {
+      const cfg: any = this.#readAgentConfigFile(id);
+      const declared: string[] = Array.isArray(cfg?.delegates) ? cfg.delegates.filter(Boolean) : [];
+      let kids: string[] = declared;
+      if (!kids.length && isRoot && isOrch) kids = chatAgents.filter((x: string) => x && x !== id);
+      for (const k of kids) {
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        lines.push(`${'  '.repeat(depth)}- ${nameOf(k)}${depth === 0 ? '   <- you can delegate to them' : ''}`);
+        walk(k, depth + 1, false);
+      }
+    };
+    walk(agentId, 0, true);
+    if (!lines.length) return "\n\n=== DELEGATION TREE ===\nYou have no agents to delegate to.";
+    return "\n\n=== DELEGATION TREE (your subtree, dynamic) ===\n" +
+      lines.join("\n") +
+      "\n\nYou can delegate ONLY to your direct reports (first level, marked). The deeper agents are shown so you know who does what, " +
+      "but you cannot call them directly: delegate to their parent, and the answer will come back through them. " +
+      "When you delegate, state what the final user needs, so the answer can be reported up the chain unchanged.";
+  }
+
   #modeNote(mode: string, _hasDelegateTool = false): string {
     const m = mode === "build" ? "build" : "plan";
     if (m === "plan") {
@@ -6427,6 +6458,10 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                 base = agentPrompt + `\n\nWorking directory: ${tempCwd2}\nEverything you create or save belongs in that directory by default — use a different location only if the user explicitly asks for one.\n\n` + base;
               }
               // Add mode note (same as #applyMode)
+              // Delega: anche il DELEGATO conosce tutto il suo sottoalbero (dinamico).
+              if (typeof base === "string" && base.length > 0) {
+                try { base = base + self.#delegationTreeNote(targetId, chatAgentsForTarget, false); } catch {}
+              }
               if (typeof base === "string" && base.length > 0 && note) {
                 const planIdx = base.indexOf("\n\nSei in MODALITÀ PIANO");
                 const buildIdx = base.indexOf("\n\nSei in MODALITÀ BUILD");
@@ -6796,30 +6831,16 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       const hasDelegate = !!(agentId && (this.#isSessionOrchestrator(key, agentId) || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
       prompt += this.#modeNote(m, hasDelegate);
     }
-    // === Orchestrator: aggiungi lista agenti disponibili nella chat ===
-    // Check: agentId could be 'orchestrator' (from setAgent) OR contain it
-    // (e.g. 'agent-123,orchestrator' from session entry, before setAgent is processed)
-    if (agentId && this.#isSessionOrchestrator(key, agentId)) {
+    // === Delega: albero dinamico (chi c'è sotto di me, chi posso chiamare) ===
+    if (agentId) {
       const sessionEntry = this.#entries.get(key);
-      const sessionAgents = (sessionEntry as any)?.agentId;
-            this.logDebug("orchestrator-agents", { sessionKey: key, agentId: agentId, sessionAgents: sessionAgents, agentDir: this.#agentDir });
-      if (sessionAgents && sessionAgents !== agentId) {
-        const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== agentId);
-        const agentNames: string[] = [];
-        for (const id of agentIds) {
-          try {
-            const agentCfg = this.#readAgentConfig(id);
-            if (agentCfg?.name) agentNames.push(agentCfg.name);
-            else agentNames.push(id);
-          } catch { agentNames.push(id); }
-        }
-        if (agentNames.length > 0) {
-          prompt += `\n\n**Agents available in this chat (use @name to tag them):**\n`;
-          for (const name of agentNames) {
-            prompt += `- @${name}\n`;
-          }
-          prompt += `\nWhen the user makes a request, analyze it and delegate to the most suitable agent. If the request is simple, answer directly.`;
-        }
+      const chatAgents = String((sessionEntry as any)?.agentId || "").split(",").filter(Boolean);
+      const isOrch = this.#isSessionOrchestrator(key, agentId);
+      const cfgAny: any = this.#readAgentConfigFile(agentId);
+      const hasDelegateTool = !!(isOrch || cfgAny?.tools?.includes("delegate_to_agent") || (Array.isArray(cfgAny?.delegates) && cfgAny.delegates.length));
+      if (hasDelegateTool) {
+        prompt += this.#delegationTreeNote(agentId, chatAgents, isOrch);
+        this.logDebug("delegation-tree-injected", { sessionKey: key, agentId, isOrch });
       }
     }
     // === Skill: short instruction instead of <available_skills> ===
