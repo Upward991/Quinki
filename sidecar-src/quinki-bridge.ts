@@ -816,7 +816,7 @@ class QuinkiBridge {
           for (const d of Array.isArray(disk) ? disk : []) if (d && d.key) diskMap.set(d.key, d);
         }
         const FIELD_MAP: [string, string][] = [
-          ["agentId", "agentIds"], ["orchestratorId", "orchestratorId"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
+          ["agentId", "agentIds"], ["orchestratorId", "orchestratorId"], ["delegateTree", "delegateTree"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
           ["mode", "mode"], ["agentOverrides", "agentOverrides"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
           ["messageSkills", "messageSkills"], ["messageTaskClips", "messageTaskClips"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
           ["pinned", "pinned"], ["pinnedOrder", "pinnedOrder"],
@@ -1256,6 +1256,7 @@ class QuinkiBridge {
       return {
         key: s.key, label: s.label, agentId: s.agentId || "",
         orchestratorId: (s as any).orchestratorId || "",
+        delegateTree: (s as any).delegateTree || {},
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
         lastActivity: s.lastActivity,
         order: orderByKey.get(s.key) ?? (typeof (s as any).order === "number" ? (s as any).order : s.lastActivity),
@@ -4540,8 +4541,9 @@ Read this file to view it.` }] };
         let _singleNoKids = false;
         if (_ids.length === 1) {
           try {
-            const _cfg: any = this.#readAgentConfigFile(_ids[0]);
-            _singleNoKids = !(Array.isArray(_cfg?.delegates) && _cfg.delegates.filter(Boolean).length > 0);
+            // I sub-agent ora vivono nell'ALBERO DELLA CHAT
+            const _kids = ((s as any)?.delegateTree?.[_ids[0]]) || [];
+            _singleNoKids = _kids.length === 0;
           } catch { _singleNoKids = true; }
         }
         if (_orch && (!_ids.includes(_orch) || _singleNoKids)) (s as any).orchestratorId = undefined;
@@ -4573,6 +4575,27 @@ Read this file to view it.` }] };
   // Designa (o toglie, con agentId=null) l'orchestrator della chat: il ruolo vive nel
   // campo sessione `orchestratorId`. L'agente designato va PRIMO nella lista agenti e
   // perde gli override model/thinking (usa quelli della chat, come da spec utente).
+  /** Albero di delega della CHAT: { agenteId: [subAgentIds] }. Vive nella sessione:
+   *  ogni chat ha il suo (non è una proprietà globale dell'agente). */
+  setSessionDelegateTree(key: string, tree: Record<string, string[]>) {
+    const s = this.#entries.get(key);
+    const clean: Record<string, string[]> = {};
+    for (const [k, v] of Object.entries(tree || {})) {
+      const ids = (Array.isArray(v) ? v : []).map(String).filter((x) => x && x !== k);
+      if (ids.length) clean[k] = [...new Set(ids)];
+    }
+    if (s) { (s as any).delegateTree = clean; this.#save(); }
+    this.#writeChatMeta(key, { delegateTree: clean });
+    try {
+      const dir = this.#quinkiSessionDir(key);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: (s as any)?.agentId || "", orchestratorId: (s as any)?.orchestratorId || "", delegateTree: clean, ts: Date.now() }, null, 2), "utf8");
+    } catch {}
+    this.logDebug("set-delegate-tree", { sessionKey: key, nodes: Object.keys(clean).length });
+    return { ok: true, delegateTree: clean };
+  }
+
+
   setSessionOrchestrator(key: string, agentId: string | null) {
     const s = this.#entries.get(key);
     const ids = String((s as any)?.agentId || "").split(",").map((x) => x.trim()).filter(Boolean);
@@ -5477,13 +5500,12 @@ Read this file to view it.` }] };
    * ma può delegare SOLO ai suoi riporti diretti (primo livello).
    * Rigenerato a ogni prompt: se aggiungi/togli deleghe, il modello lo sa subito.
    */
-  #delegationTreeNote(agentId: string, chatAgents: string[], isOrch: boolean): string {
+  #delegationTreeNote(agentId: string, chatAgents: string[], isOrch: boolean, tree?: Record<string, string[]>): string {
     const nameOf = (id: string) => { try { return this.#readAgentConfig(id)?.name || id; } catch { return id; } };
     const lines: string[] = [];
     const seen = new Set<string>([agentId]);
     const walk = (id: string, depth: number, isRoot: boolean) => {
-      const cfg: any = this.#readAgentConfigFile(id);
-      const declared: string[] = Array.isArray(cfg?.delegates) ? cfg.delegates.filter((d: string) => d && d !== id) : [];
+      const declared: string[] = Array.isArray(tree?.[id]) ? tree![id].filter((d: string) => d && d !== id) : [];
       let kids: string[] = declared;
       if (!kids.length && isRoot && isOrch) kids = chatAgents.filter((x: string) => x && x !== id);
       for (const k of kids) {
@@ -6290,7 +6312,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             // Anti-ciclo: chi mi ha chiamato non lo richiamo. La profondità NON ha limiti.
             const chain = Array.isArray(opts?.chain) ? opts!.chain! : [];
             const chatRoster = String(sessionAgents).split(',').filter((id: string) => id && id !== selfId);
-            const agentIds = (opts?.roster ?? chatRoster).filter(
+            const _tree: Record<string, string[]> = ((self.#entries.get(sessionKey) as any)?.delegateTree) || {};
+            // Roster: l'albero della CHAT; se l'agente non ha figli nell'albero,
+            // vale il comportamento di sempre (l'orchestrator → agenti della chat).
+            const fromTree = Array.isArray(_tree[selfId]) ? _tree[selfId] : [];
+            const baseRoster = opts?.roster ?? (fromTree.length ? fromTree : (self.#isSessionOrchestrator(sessionKey, selfId) ? chatRoster : []));
+            const agentIds = baseRoster.filter(
               (id: string) => id && id !== selfId && !chain.includes(id)
             );
           // Trova l'agente per nome (case-insensitive)
@@ -6359,7 +6386,6 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             if (targetRoster.length > 0) {
               tempDelegateTool = self.#buildDelegateTool(sessionKey, {
                 selfAgentId: targetId,
-                roster: targetRoster,
                 chain: [...chain, selfId],
                 parentDelegationId: delegationId,
               });
@@ -6469,7 +6495,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               // Delega: anche il DELEGATO conosce tutto il suo sottoalbero (dinamico).
               let subTreeNote = "";
               if (typeof base === "string" && base.length > 0) {
-                try { subTreeNote = self.#delegationTreeNote(targetId, chatAgentsForTarget, false); base = base + subTreeNote; } catch {}
+                try { subTreeNote = self.#delegationTreeNote(targetId, chatAgentsForTarget, false, ((self.#entries.get(sessionKey) as any)?.delegateTree) || {}); base = base + subTreeNote; } catch {}
               }
               if (typeof base === "string" && base.length > 0 && note) {
                 const planIdx = base.indexOf("\n\nSei in MODALITÀ PIANO");
@@ -6848,7 +6874,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       const cfgAny: any = this.#readAgentConfigFile(agentId);
       const hasDelegateTool = !!(isOrch || cfgAny?.tools?.includes("delegate_to_agent") || (Array.isArray(cfgAny?.delegates) && cfgAny.delegates.length));
       if (hasDelegateTool) {
-          prompt += this.#delegationTreeNote(agentId, chatAgents, isOrch);
+          prompt += this.#delegationTreeNote(agentId, chatAgents, isOrch, ((this.#entries.get(key) as any)?.delegateTree) || {});
         (this as any).__lastTree = this.#delegationTreeNote(agentId, chatAgents, isOrch);
         this.logDebug("delegation-tree-injected", { sessionKey: key, agentId, isOrch });
       }

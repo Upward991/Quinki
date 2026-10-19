@@ -644,6 +644,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 onRemoveFromChat={(id) => setConfirmDelete(id)}
                 onToggleChatAgent={(id) => props.onAgentToggle(id)}
                 sessionKey={String((props as any).session?.id || '')}
+                delegateTree={((props as any).session?.delegateTree || {})}
                 onSelectAgent={(id) => { setMultiSelect(true); setSelectedForRemoval(new Set([id])) }}
                 onPickModel={(id) => setModelPickerFor(id)}
                 onPickThinking={(id) => setThinkingPickerFor(id)}

@@ -37,6 +37,7 @@ type Props = {
   picked: Set<string>
   onContextMenu: (id: string, x: number, y: number) => void
   onTogglePick: (id: string) => void
+  delegateTree: Record<string, string[]>
   onRequestRemoveSelected: () => void
   onCancelSelect: () => void
 }
@@ -91,7 +92,14 @@ export function AgentGraphSheet(props: Props) {
       setLocalOrch((s?.orchestratorId || '') as string)
       const ids = String(s?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
       if (ids.length) setLocalChatIds(ids)
+      setTree(((s as any)?.delegateTree || {}) as Record<string, string[]>)
     } catch {}
+  }
+
+  const saveTree = async (next: Record<string, string[]>) => {
+    try { await rpc('setSessionDelegateTree', { sessionKey: props.sessionKey, tree: next }) } catch {}
+    setTree(next)
+    await reloadOrch()
   }
 
   const byId = useMemo(() => {
@@ -105,6 +113,7 @@ export function AgentGraphSheet(props: Props) {
   // Il ruolo si legge dal MOTORE (reloadOrch); la prop può essere vecchia e non deve sovrascrivere.
   const [localOrch, setLocalOrch] = useState(orchestratorId)
   const [localChatIds, setLocalChatIds] = useState<string[]>(chatAgentIds)
+  const [tree, setTree] = useState<Record<string, string[]>>(delegateTree || {})
   useEffect(() => { if (Array.isArray(chatAgentIds) && chatAgentIds.length) setLocalChatIds(chatAgentIds) }, [chatAgentIds])
   // FONTE VERA: l'app può avere la lista vecchia; il motore no.
   const chatIds = localChatIds.length ? localChatIds : chatAgentIds
@@ -128,10 +137,10 @@ export function AgentGraphSheet(props: Props) {
       placed.add(id)
       let kidsIds: string[] = []
       if (depth === 0 && markOrch) {
-        const declared = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
+        const declared = (delegateTree[id] || []).filter(Boolean)
         kidsIds = [...new Set([...chatIds.filter(x => x !== id), ...declared])]
       } else {
-        kidsIds = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
+        kidsIds = (delegateTree[id] || []).filter(Boolean)
       }
       const kids: TNode[] = []
       for (const k of kidsIds) {
@@ -256,13 +265,14 @@ export function AgentGraphSheet(props: Props) {
       await reloadAgents(); await reloadOrch()
       return
     }
-    const kids: string[] = Array.isArray(byId[id]?.delegates) ? byId[id].delegates : []
+    const kids: string[] = (delegateTree[id] || [])
     // 1) sostituisci il nodo con i suoi figli, in ogni padre che lo contiene
     for (const pid of Object.keys(byId)) {
-      const cur: string[] = Array.isArray(byId[pid]?.delegates) ? byId[pid].delegates : []
+      const cur: string[] = (delegateTree[pid] || [])
       if (!cur.includes(id)) continue
       const next = [...new Set([...cur.filter(x => x !== id), ...kids])]
-      try { await rpc('updateAgent', { id: pid, config: { delegates: next } }) } catch {}
+      const t2 = { ...tree, [pid]: next };
+      await saveTree(t2)
     }
     // 2) se era in chat: lo toglie con il percorso ORIGINALE dell'app
     if (inChat) {
@@ -272,7 +282,7 @@ export function AgentGraphSheet(props: Props) {
     //    resta senza sub-agent → il ruolo NON viene riassegnato in automatico.
     if (id === orchId) {
       try {
-        await rpc('updateAgent', { id, config: { delegates: [] } })
+        await saveTree({ ...tree, [id]: [] })
         await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
       } catch {}
     }
@@ -285,7 +295,7 @@ export function AgentGraphSheet(props: Props) {
       const ids = String(s2?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
       const only = ids.length === 1 ? ids[0] : null
       const list = fresh || localAgents
-      const kids = only ? ((list.find((a: any) => a.id === only)?.delegates) || []) : []
+      const kids = only ? (tree[only] || []) : []
       if (only && kids.length === 0 && s2?.orchestratorId) {
         await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
         setLocalOrch('')
@@ -298,9 +308,9 @@ export function AgentGraphSheet(props: Props) {
    *  in chat → scende al primo livello. */
   const makeOrchestrator = async (id: string) => {
     for (const pid of Object.keys(byId)) {
-      const cur: string[] = Array.isArray(byId[pid]?.delegates) ? byId[pid].delegates : []
+      const cur: string[] = (delegateTree[pid] || [])
       if (!cur.includes(id)) continue
-      try { await rpc('updateAgent', { id: pid, config: { delegates: cur.filter(x => x !== id) } }) } catch {}
+      await saveTree({ ...tree, [pid]: cur.filter((x: string) => x !== id) })
     }
     const cur = chatAgentIds
     if (!cur.includes(id)) { try { await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: [...cur, id].join(',') }) } catch {} }
@@ -346,11 +356,6 @@ export function AgentGraphSheet(props: Props) {
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10, whiteSpace: 'nowrap' }}>
               {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'}
             </span>
-            {selectMode && (
-              <span style={{ color: 'var(--q-text)', fontSize: 12.5, fontWeight: 600, fontFamily: 'var(--font-interface)', marginRight: 10, whiteSpace: 'nowrap' }}>
-                {picked.size} selected
-              </span>
-            )}
             <div style={{ flex: 1 }} />
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
             <span style={{ minWidth: 42, textAlign: 'center', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{pct}%</span>
@@ -452,13 +457,13 @@ export function AgentGraphSheet(props: Props) {
       {subFor && (
         <AgentPickerModal
           agents={agents}
-          initialSelected={[...new Set([...chatIds, ...laid.nodes.map(n => n.id), ...((byId[subFor]?.delegates as string[]) || [])])]}
+          initialSelected={[...new Set([...chatIds, ...laid.nodes.map(n => n.id), ...(delegateTree[subFor] || [])])]}
           title={`Add sub agents to ${byId[subFor]?.name || subFor}`}
           onClose={() => setSubFor(null)}
           onAdd={async (ids: string[]) => {
-            const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
+            const cur: string[] = (delegateTree[subFor] || [])
             try {
-              await rpc('updateAgent', { id: subFor, config: { delegates: [...new Set([...cur, ...ids])] } })
+              await saveTree({ ...tree, [subFor]: [...new Set([...cur, ...ids])] })
               // Il ruolo lo scrivo DIRETTAMENTE (non via app): così il grafo non resta piatto
               if (!orchId && props.sessionKey) {
                 await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor })

@@ -522,6 +522,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     return { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' };
   },
   // === ORCHESTRATOR COME RUOLO (10 ott): designa/togli l'orchestrator della chat ===
+  setSessionDelegateTree: async (p) => quinkiBridge!.setSessionDelegateTree(String(p.sessionKey||''), p.tree || {}),
   setSessionOrchestrator: async (p) => {
     const key = String(p?.sessionKey || '');
     if (!key) return { ok: false, error: 'sessionKey is required.' };
