@@ -507,17 +507,23 @@ export function ChatHeader(props: ChatHeaderProps) {
                   onClick={async () => {
                     const fn = (window as any).__quinkiRemoveNode
                     if (confirmDelete === 'selected') {
-                      // UNA SOLA operazione: tolgo TUTTI i selezionati dalla chat in un colpo.
-                      // Unica protezione: la chat non può restare vuota → resta il primo.
                       const ids = Array.from(selectedForRemoval)
-                      const cur = String((props as any).session?.agentId || '').split(',').filter(Boolean)
-                      // TUTTI i selezionati escono dalla chat (in un colpo), e i sub-agent
-                      // escono anche dal loro padre. La chat non resta mai vuota.
-                      const notInChat = ids.filter((x: string) => !cur.includes(x))
-                      let next = cur.filter((x: string) => !ids.includes(x))
-                      if (next.length === 0) next = [cur[0]] // resta l'agente principale
-                      try { await (props as any).onSetChatAgents?.(next) } catch {}
-                      for (const id of notInChat) { try { await (fn ? fn(id) : Promise.resolve()) } catch {} }
+                      // Lista agenti AUTOREVOLE dal motore (la prop può essere vecchia)
+                      let cur: string[] = String((props as any).session?.agentId || '').split(',').filter(Boolean)
+                      try {
+                        const r: any = await rpc('listSessions', {})
+                        const sk = String((props as any).session?.id || '')
+                        const s2 = (r?.sessions || []).find((x: any) => x.key === sk)
+                        if (s2) cur = String(s2.agentId || '').split(',').filter(Boolean)
+                      } catch {}
+                      // Agenti della chat → toggle originale, uno per uno
+                      for (const id of ids.filter((x: string) => cur.includes(x))) {
+                        try { props.onAgentToggle(id) } catch {}
+                      }
+                      // Sub-agent → tolti dal padre
+                      for (const id of ids.filter((x: string) => !cur.includes(x))) {
+                        try { await (fn ? fn(id) : Promise.resolve()) } catch {}
+                      }
                       setSelectedForRemoval(new Set()); setMultiSelect(false)
                     } else {
                       try { await (fn ? fn(confirmDelete) : props.onAgentToggle(confirmDelete)) } catch {}
