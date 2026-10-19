@@ -459,34 +459,37 @@ export function AgentGraphSheet(props: Props) {
         )
       })()}
 
-      {/* Conferma rimozione sub-agent (stesso stile del dialogo originale) */}
+      {/* Conferma rimozione sub-agent — STESSI colori/stili del dialogo originale */}
       {confirmSub && (() => {
         const parentId = Object.keys(byId).find(pid => Array.isArray(byId[pid]?.delegates) && byId[pid].delegates.includes(confirmSub))
         return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 950, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={(e) => { if (e.target === e.currentTarget) setConfirmSub(null) }}>
-            <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }}>
-              <div style={{ color: 'var(--q-text)', fontSize: 16, fontFamily: 'var(--font-interface)', marginBottom: 20 }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 650, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmSub(null)}>
+            <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
+              <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>
                 Remove {byId[confirmSub]?.name || confirmSub} from {byId[parentId || '']?.name || 'parent'}?
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-                <button onClick={() => setConfirmSub(null)}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={async () => {
-                  await removeNode(confirmSub)
-                  setConfirmSub(null)
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(217,107,107,0.12)')}
-                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-danger)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Remove</button>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
+                <button
+                  onClick={() => setConfirmSub(null)}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => { await removeNode(confirmSub); setConfirmSub(null) }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
+                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Remove
+                </button>
               </div>
             </div>
           </div>
         )
       })()}
-
 
     </div>
   )
