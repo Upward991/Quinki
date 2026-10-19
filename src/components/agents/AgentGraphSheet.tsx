@@ -483,10 +483,6 @@ export function AgentGraphSheet(props: Props) {
               // ALBERO (strato nuovo): scrivi la struttura della chat
               // ALBERO (motore): un nodo ha UN SOLO padre → attachToParent stacca e attacca
               try { await rpc('attachToParent', { sessionKey: props.sessionKey, parentId: subFor, ids }) } catch {}
-              // CHAT (percorso originale): aggiungi gli agenti come ha sempre fatto l'app
-              for (const id of ids) { if (!chatIds.includes(id)) { try { props.onAddToChat(id) } catch {} } }
-              // se non c'era, il padre diventa orchestrator
-              if (!orchId && props.sessionKey) { try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor }) } catch {} }
               await Promise.all([reloadAgents(), reloadOrch()])
               dlog('add-done', { parent: subFor, ids, tree, chatIds, orch: orchId })
               setSubFor(null)
