@@ -6103,26 +6103,29 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   }
 
   // True se agentIdOrList E' l'orchestrator della chat (solo per chat con 2+ agenti).
-  /** Lista dei FIGLI dell'agente nell'albero della chat = a chi può delegare. */
+  /** Albero che l'agente deve CONOSCERE: tutto il suo sottoalbero, con i FIGLI DIRETTI
+   *  marcati come delegabili. Serve a costruire la catena: sa che per arrivare a un
+   *  nipote deve chiedere al figlio di delegare. */
   #childrenPromptNote(key: string, agentId: string): string {
     try {
       if (!key || !agentId) return "";
       const t = this.#chatTreeOf(key);
       const kids = (t.tree[agentId] || []).filter(Boolean);
       if (!kids.length) return "";
-      let out = `\n\n**Your agents in this chat (use delegate_to_agent to call them, or @name to tag them):**\n`;
-      for (const id of kids) {
-        let name = id, desc = "";
-        try {
-          const cfg = this.#readAgentConfig(id);
-          if (cfg?.name) name = cfg.name;
-          const skills = (cfg?.skills || []).join(", ");
-          const tools = (cfg?.tools || []).join(", ");
-          desc = ` — ${cfg?.description || "Agent"}${skills ? ` (skill: ${skills})` : ""}${tools ? ` (tool: ${tools})` : ""}`;
-        } catch {}
-        out += `- @${name}${desc}\n`;
-      }
-      out += `\nWhen the user makes a request, delegate to the most suitable agent. If the request is simple, answer directly.`;
+      const nameOf = (id: string) => { try { return this.#readAgentConfig(id)?.name || id; } catch { return id; } };
+      const lines: string[] = [];
+      const walk = (id: string, depth: number, direct: boolean, seen: Set<string>) => {
+        if (seen.has(id)) return; seen.add(id);
+        lines.push(`${"  ".repeat(depth)}- @${nameOf(id)}${direct ? "   <-- you can delegate to them" : ""}`);
+        for (const k of (t.tree[id] || [])) if (!seen.has(k)) walk(k, depth + 1, false, seen);
+      };
+      const seen = new Set<string>([agentId]);
+      for (const k of kids) walk(k, 0, true, seen);
+      let out = `\n\n**Organization of this chat (the whole tree below you):**\n`;
+      out += lines.join("\n");
+      out += `\n\nYou can call ONLY the agents marked "you can delegate to them" (your direct children).`;
+      out += `\nTo reach an agent deeper in the tree, ask your direct child to delegate further down, then report the answer back up the chain.`;
+      out += `\nWhen the user makes a request, pick the right agent and delegate. If the request is simple, answer directly.`;
       return out;
     } catch { return ""; }
   }
@@ -6445,10 +6448,20 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
    */
   #buildDelegateTool(sessionKey: string, opts?: { selfAgentId?: string; roster?: string[]; chain?: string[]; parentDelegationId?: string }): any {
     const self = this;
+    // La descrizione elenca CHI posso chiamare (i miei figli nell'albero): senza nomi
+    // il modello non sa che la delega è possibile né verso chi.
+    const _selfId = opts?.selfAgentId || String(this.#entries.get(sessionKey)?.agentId || "").split(",")[0] || "";
+    const _t0 = this.#chatTreeOf(sessionKey);
+    const _myKids = (_t0.tree[_selfId] || []).filter(Boolean);
+    const _nameOf = (id: string) => { try { return this.#readAgentConfig(id)?.name || id; } catch { return id; } };
+    const _rosterNames = _myKids.map(_nameOf);
+    const _desc = _rosterNames.length
+      ? `Delegate a task to one of your direct agents: ${_rosterNames.join(", ")}. The agent receives the task, executes it, and returns the response; you then synthesize it for the user. To reach an agent deeper in the tree, ask your direct child to delegate further.`
+      : "Delegate a task to one of the agents you can delegate to. The agent receives the task, executes it, and returns the response.";
     return defineTool({
       name: "delegate_to_agent",
       label: "Delegate to agent",
-      description: "Delegate a task to one of the agents you can delegate to (your team: the chat's agents, or your own sub-agents if configured). Use this tool when the user asks something that requires a specific agent's expertise. The agent receives the task, executes it, and returns the response. You then synthesize and report it to the user.",
+      description: _desc,
       promptSnippet: "delegate_to_agent: delegate a task to a specific agent in the chat",
       promptGuidelines: [
         "When you need to delegate a task to an agent, use the delegate_to_agent tool with the agent's name and the task to perform.",
@@ -6564,8 +6577,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           self.#active.set(tempKey, tempPi);
           // === Imposta system prompt dell'agente — NON sovrascrivere il prompt del resource loader (ha skills) ===
           try {
-            const rlPrompt = tempPi.agent.state.systemPrompt || agentPrompt;
+            // Il delegato deve CONOSCERE il suo sottoalbero (altrimenti non sa di poter delegare):
+            // la temp session ha un solo agente, quindi il contesto arriva dalla chat originale.
+            const subtree = self.#childrenPromptNote(sessionKey, targetId);
+            const rlPrompt = (tempPi.agent.state.systemPrompt || agentPrompt) + subtree;
             quinkiSetSystemPrompt((tempPi as any).agent, rlPrompt);
+            if (subtree) self.logDebug("delegate-subtree-note", { sessionKey, agentId: targetId, len: subtree.length });
             self.logDebug("delegate-system-prompt-keep", { sessionKey, promptLen: rlPrompt.length, hasSkills: rlPrompt.includes("available_skills") });
           } catch {}
           // Setta modello: prima controlla session override, poi agent config, poi sessione
