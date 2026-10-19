@@ -506,7 +506,12 @@ export function ChatHeader(props: ChatHeaderProps) {
               <button
                   onClick={async () => {
                     const ids = confirmDelete === 'selected' ? Array.from(selectedForRemoval) : [confirmDelete]
-                    try { await (props as any).onRemoveNodes?.(ids) } catch {}
+                    // PERCORSO ORIGINALE: onAgentToggle per ogni agente della chat
+                    for (const id of ids) {
+                      try { props.onAgentToggle(id) } catch {}
+                    }
+                    // i sub-agent (non in chat) escono dal loro padre
+                    try { await (props as any).onRemoveSubAgents?.(ids) } catch {}
                     setSelectedForRemoval(new Set()); setMultiSelect(false); setConfirmDelete(null)
                   }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
@@ -622,6 +627,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                 // Rimozione dalla chat: SEMPRE con il dialogo di conferma originale
                 onRemoveFromChat={(id) => setConfirmDelete(id)}
                 onToggleChatAgent={(id) => props.onAgentToggle(id)}
+                onRemoveSubAgents={(ids) => (props as any).onRemoveNodes?.(ids)}
                 sessionKey={String((props as any).session?.id || '')}
                 delegateTree={((props as any).session?.delegateTree || {})}
                 onSelectAgent={(id) => { setMultiSelect(true); setSelectedForRemoval(new Set([id])) }}

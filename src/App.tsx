@@ -648,27 +648,20 @@ export default function App() {
       },
       [e, o],
     ),
-  /** RIMOZIONE agenti: UNA sola scrittura atomica (agenti + orchestrator + albero). */
+  /** Rimozione SUB-AGENTI (non agenti della chat): toglie solo dai padri, per la chat aperta. */
   zr = useCallback(
     async (ids) => {
       const sk = o || e.activeSessionId || ``
       if (!sk || !Array.isArray(ids) || !ids.length) return
-      let cur = [], tree = {}, orch = ``
+      let tree = {}
       try {
         const r = await e.call('listSessions', {})
         const s2 = (r?.sessions || []).find((x) => x.key === sk)
-        cur = String(s2?.agentId || '').split(',').filter(Boolean)
         tree = { ...(s2?.delegateTree || {}) }
-        orch = s2?.orchestratorId || ``
       } catch {}
-      const next = cur.filter((x) => !ids.includes(x))
-      const keep = next.length ? next : cur.slice(0, 1)
       const t2 = {}
       for (const k of Object.keys(tree)) t2[k] = (tree[k] || []).filter((x) => !ids.includes(x))
-      try {
-        await e.call('setSessionChatState', { sessionKey: sk, state: { agentIds: keep.join(','), orchestratorId: ids.includes(orch) ? '' : orch, delegateTree: t2 } })
-      } catch {}
-      try { l(keep) } catch {}
+      try { await e.call('setSessionDelegateTree', { sessionKey: sk, tree: t2 }) } catch {}
       try { await e.refreshSessions?.() } catch {}
     },
     [e, o],

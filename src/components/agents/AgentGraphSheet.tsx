@@ -303,8 +303,12 @@ export function AgentGraphSheet(props: Props) {
    */
   const removeNode = async (id: string) => {
     dlog('remove-start', { id, chatIds, tree })
-    try { await (props as any).onRemoveNodes?.([id]) } catch {}
-    await Promise.all([reloadAgents(), reloadOrch()])
+    if (chatIds.includes(id)) {
+      try { props.onRemoveFromChat(id) } catch {}   // dialogo originale
+    } else {
+      try { await (props as any).onRemoveSubAgents?.([id]) } catch {}
+      await Promise.all([reloadAgents(), reloadOrch()])
+    }
   }
 
   /** Porta un agente (di qualsiasi livello) a orchestrator: lo stacca dal padre,
@@ -465,11 +469,12 @@ export function AgentGraphSheet(props: Props) {
             const cur: string[] = (tree[subFor] || [])
             dlog('add-click', { parent: subFor, ids, treeBefore: tree, chatBefore: chatIds })
             try {
-              await saveChat({
-                agentIds: [...new Set([...chatIds, ...ids])],
-                orchestratorId: orchId || subFor,
-                delegateTree: { ...tree, [subFor]: [...new Set([...(tree[subFor] || []), ...ids])] },
-              })
+              // ALBERO (strato nuovo): scrivi la struttura della chat
+              await saveTree({ ...tree, [subFor]: [...new Set([...(tree[subFor] || []), ...ids])] })
+              // CHAT (percorso originale): aggiungi gli agenti come ha sempre fatto l'app
+              for (const id of ids) { if (!chatIds.includes(id)) { try { props.onAddToChat(id) } catch {} } }
+              // se non c'era, il padre diventa orchestrator
+              if (!orchId && props.sessionKey) { try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor }) } catch {} }
               // È un agente DELLA CHAT: entra anche nella lista agenti della sessione
               try {
                 const ids2 = [...new Set([...chatIds, ...ids])]
