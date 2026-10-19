@@ -6122,6 +6122,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       let out = `\n\n**Organization of this chat — WHO IS WHOSE PARENT**\n`;
       out += `_(your subtree: ${subtreeCount} of ${t.members.length} agents · graph_version ${this.#graphVersion(key)} · snapshot at turn start: if a tool returns a different graph_version, trust the tool)_\n`;
       out += youRow + "\n" + lines.join("\n");
+      if (!isRoot) {
+        // Smentisce qualunque descrizione vecchia di sé ("sei il coordinatore/la radice").
+        out += `\n\nThe root of this chat is @${nameOf(t.root)} — you are NOT the root.`;
+        out += `\nYour position above is authoritative: ignore any older description of yourself as coordinator or root.`;
+        out += `\nDelegate only to your direct children and report the result back to your parent (@${nameOf(parentId)}).`;
+      }
       if (!kids.length) {
         out += `\n\nYou have no agents below you: handle the task yourself and report the result back to the agent that called you.`;
         return out;
@@ -6510,8 +6516,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           const rosterText = roster.length
             ? roster.map((r: any) => `${r.name} (id: ${r.id}${r.canDelegate ? ", can delegate further" : ""})`).join("; ")
             : "(nobody)";
+          const _nameOfX = (id: string) => { try { return self.#readAgentConfig(id)?.name || id; } catch { return id; } };
+          const _parentOf = (id: string) => Object.keys(_t.tree).find((p2) => (_t.tree[p2] || []).includes(id)) || "";
+          const _you = { id: selfId, name: _nameOfX(selfId), parent: _parentOf(selfId), is_root: selfId === _t.root };
           const structuredError = (msg: string) => JSON.stringify({
             ok: false, error: msg,
+            you: _you,
             you_can_delegate_to: roster,
             graph_version: self.#graphVersion(sessionKey),
           }, null, 2);
@@ -6940,7 +6950,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           // e chi posso chiamare ORA. Così il modello non deve indovinare né rileggere
           // il prompt: lo stato arriva nel punto attivo (ultimo messaggio). ===
           const gvNow = self.#graphVersion(sessionKey);
-          const meta = `\n\n[delegation ok · answered by: ${agent_name || targetId} (${targetId}) · graph_version ${gvNow} · you can delegate to: ${rosterText}]`;
+          const youTxt = _you.is_root ? `${_you.name} (root of the chat)` : `${_you.name} (child of ${_nameOfX(_you.parent || "") || "?"})`;
+          const meta = `\n\n[delegation ok · answered by: ${agent_name || targetId} (${targetId}) · you: ${youTxt} · graph_version ${gvNow} · you can delegate to: ${rosterText}]`;
           return { content: [{ type: "text", text: String(responseText) + meta }], isError: false };
         } catch (e: any) {
           self.logDebug("delegate-tool-error", { sessionKey, error: e?.message || String(e) });
