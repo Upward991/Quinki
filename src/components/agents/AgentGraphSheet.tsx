@@ -111,16 +111,10 @@ export function AgentGraphSheet(props: Props) {
     if (st.agentIds) state.agentIds = st.agentIds.join(',')
     if (st.orchestratorId !== undefined) state.orchestratorId = st.orchestratorId || ''
     if (st.delegateTree !== undefined) state.delegateTree = st.delegateTree
-    const __key = JSON.stringify(state)
-    const __now = Date.now()
-    if (lastSaveRef.current.key === __key && __now - lastSaveRef.current.ts < 800) { dlog('saveChat-skip', { key: __key }); return }
-    lastSaveRef.current = { key: __key, ts: __now }
-    dlog('saveChat', state)
+    dlog('saveChat', { state, stack: (new Error().stack || '').split('\n').slice(1, 5) })
     try { await rpc('setSessionChatState', { sessionKey: props.sessionKey, state }) } catch (e: any) { dlog('saveChat-error', String(e?.message || e)) }
     await Promise.all([reloadAgents(), reloadOrch()])
   }
-
-  const lastSaveRef = React.useRef<{ key: string; ts: number }>({ key: '', ts: 0 })
 
   const saveTree = async (next: Record<string, string[]>) => {
     dlog('saveTree', { next })
@@ -307,10 +301,8 @@ export function AgentGraphSheet(props: Props) {
    *  - se era un agente della chat: i figli salgono al primo livello (delegates dell'orchestrator)
    *  - se era l'orchestrator: il ruolo si azzera (NESSUN automatismo)
    */
-  const lastRemoveRef = React.useRef<{ id: string; ts: number }>({ id: '', ts: 0 })
   const removeNode = async (id: string) => {
-    const __n = Date.now(); if (lastRemoveRef.current.id === id && __n - lastRemoveRef.current.ts < 800) { dlog('remove-skip', { id }); return } lastRemoveRef.current = { id, ts: __n }
-    dlog('remove-start', { id, inChat: chatIds.includes(id), tree, chatIds })
+    dlog('remove-start', { id, inChat: chatIds.includes(id), tree, chatIds, stack: (new Error().stack || '').split('\n').slice(1, 5) })
     const inChat = chatIds.includes(id)
     // ══ REGOLA CRITICA: se l'agente è IN CHAT si toglie SOLO dalla chat.
     // Le `delegates` sono GLOBALI (condivise da tutte le chat): toccarle qui
