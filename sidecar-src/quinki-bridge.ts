@@ -5475,7 +5475,7 @@ Read this file to view it.` }] };
     const seen = new Set<string>([agentId]);
     const walk = (id: string, depth: number, isRoot: boolean) => {
       const cfg: any = this.#readAgentConfigFile(id);
-      const declared: string[] = Array.isArray(cfg?.delegates) ? cfg.delegates.filter(Boolean) : [];
+      const declared: string[] = Array.isArray(cfg?.delegates) ? cfg.delegates.filter((d: string) => d && d !== id) : [];
       let kids: string[] = declared;
       if (!kids.length && isRoot && isOrch) kids = chatAgents.filter((x: string) => x && x !== id);
       for (const k of kids) {
@@ -6343,7 +6343,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             const tempSkillTool = self.#buildSkillTool(() => tempPiRef);
             // ══ SOTTO-DELEGA: il delegato riceve il SUO delegate_to_agent ══
             const targetFullCfg = self.#readAgentConfigFile(targetId) as any;
-            const declared = Array.isArray(targetFullCfg?.delegates) ? targetFullCfg.delegates : null;
+            const declared = Array.isArray(targetFullCfg?.delegates) ? targetFullCfg.delegates.filter((d: string) => d && d !== targetId) : null;
             const chatAgentsForTarget = String(sessionAgents).split(',').filter((id: string) => id && id !== targetId);
             const targetRoster = (declared && declared.length ? declared : chatAgentsForTarget)
               .filter((id: string) => id && id !== targetId && !chain.includes(id) && id !== selfId);
