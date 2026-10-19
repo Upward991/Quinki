@@ -79,10 +79,13 @@ export function AgentGraphSheet(props: Props) {
 
   const laid = useMemo(() => {
     const nodes: TNode[] = []
+    const placed = new Set<string>() // un agente = un solo nodo nell'albero
 
     const build = (id: string, depth: number, chain: Set<string>, markOrch: boolean): TNode | null => {
       const agent = byId[id]
       if (!agent) return null
+      if (placed.has(id)) return null
+      placed.add(id)
       let kidsIds: string[] = []
       if (depth === 0 && markOrch) {
         const declared = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
