@@ -84,13 +84,13 @@ export function AgentGraphSheet(props: Props) {
       let kidsIds: string[] = []
       if (depth === 0 && markOrch) {
         const declared = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
-        kidsIds = declared.length ? declared : chatAgentIds.filter(x => x !== id)
+        kidsIds = [...new Set([...chatAgentIds.filter(x => x !== id), ...declared])]
       } else {
         kidsIds = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
       }
       const kids: TNode[] = []
       for (const k of kidsIds) {
-        if (k === id || chain.has(k) || !byId[k]) continue
+        if (k === id || chain.has(k) || !byId[k] || kids.some(x => x.id === k)) continue
         const n = build(k, depth + 1, new Set([...chain, k]), markOrch)
         if (n) kids.push(n)
       }
@@ -333,7 +333,7 @@ export function AgentGraphSheet(props: Props) {
           onAdd={async (ids: string[]) => {
             const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
             try {
-              const res: any = await rpc('updateAgent', { id: subFor, config: { delegates: [...cur, ...ids] } })
+              const res: any = await rpc('updateAgent', { id: subFor, config: { delegates: [...new Set([...cur, ...ids])] } })
               if (res && res.success === false) { alert('Add sub agent failed: ' + (res.error || 'unknown')); return }
               if (!orchId) { try { props.onSetOrchestrator(subFor); setToast(`${byId[subFor]?.name || subFor} is now the orchestrator`) } catch {} }
               props.onRefreshAgents?.()
@@ -373,16 +373,10 @@ export function AgentGraphSheet(props: Props) {
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 600 }} onClick={() => setSubMenu(null)} onContextMenu={(e) => { e.preventDefault(); setSubMenu(null) }} />
             <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 180), top: Math.min(subMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, minWidth: 170 }}>
-              {item('Set as orchestrator', 'var(--q-text)', () => {
-                try { if (!inChat) props.onAddToChat(subMenu.id); props.onSetOrchestrator(subMenu.id); setToast(`${byId[subMenu.id]?.name || subMenu.id} is now the orchestrator`) } catch (e: any) { alert(String(e?.message || e)) }
-                setSubMenu(null)
-              })}
-              {item('Select', 'var(--q-text)', () => {
-                if (inChat) props.onSelectAgent(subMenu.id); else setToast('Only chat agents can be selected')
-                setSubMenu(null)
-              })}
+              <div title="Only for chat agents" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', opacity: .55, cursor: 'default' }}>Set as orchestrator</div>
+              <div title="Only for chat agents" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', opacity: .55, cursor: 'default' }}>Select</div>
               {item('Remove', 'var(--q-accent-danger)', async () => {
-                if (inChat) { props.onContextMenu(subMenu.id, subMenu.x, subMenu.y); setSubMenu(null); return }
+                // (i sub-agent non sono agenti della chat: si rimuovono SOLO dal padre)
                 if (!parentId) { setSubMenu(null); return }
                 const cur: string[] = Array.isArray(byId[parentId]?.delegates) ? byId[parentId].delegates : []
                 try { await rpc('updateAgent', { id: parentId, config: { delegates: cur.filter(x => x !== subMenu.id) } }); props.onRefreshAgents?.(); setToast('Sub agent removed') } catch (e: any) { alert('Remove failed: ' + (e?.message || String(e))) }
