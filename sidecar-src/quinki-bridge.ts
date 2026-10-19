@@ -826,7 +826,7 @@ class QuinkiBridge {
         }
         const FIELD_MAP: [string, string][] = [
           ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
-          ["mode", "mode"], ["agentOverrides", "agentOverrides"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
+          ["mode", "mode"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
           ["messageSkills", "messageSkills"], ["messageTaskClips", "messageTaskClips"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
           ["pinned", "pinned"], ["pinnedOrder", "pinnedOrder"],
         ];
