@@ -4679,6 +4679,30 @@ Read this file to view it.` }] };
   // perde gli override model/thinking (usa quelli della chat, come da spec utente).
   /** Albero di delega della CHAT: { agenteId: [subAgentIds] }. Vive nella sessione:
    *  ogni chat ha il suo (non è una proprietà globale dell'agente). */
+  /** Rimuove nodi dalla chat (ATOMICO): un nodo esce, i suoi figli salgono al padre.
+   *  La radice non si rimuove (il ruolo resta). È IL modo in cui la UI rimuove. */
+  detachNodes(key: string, ids: string[]) {
+    const t = this.#chatTreeOf(key);
+    const del = (Array.isArray(ids) ? ids : []).map(String).map((x) => x.trim()).filter(Boolean);
+    if (!del.length) return { ok: true, delegateTree: t.tree, orchestratorId: t.root, agentIds: t.members.join(",") };
+    const tree: Record<string, string[]> = {};
+    for (const [pid, kids] of Object.entries(t.tree)) tree[pid] = [...kids];
+    let root = t.root;
+    for (const id of del) {
+      if (id === root) continue;                       // la radice non si tocca
+      const parent = Object.keys(tree).find((p2) => (tree[p2] || []).includes(id)) || "";
+      const kids = tree[id] || [];
+      delete tree[id];
+      for (const p2 of Object.keys(tree)) tree[p2] = tree[p2].filter((x) => x !== id);
+      if (parent && tree[parent]) tree[parent] = [...new Set([...tree[parent], ...kids])];
+      else tree[root] = [...new Set([...(tree[root] || []), ...kids])];
+    }
+    const members = t.members.filter((id) => !del.includes(id));
+    const saved = this.#saveChatTree(key, tree, root, members.length ? members : t.members);
+    this.logDebug("detach-nodes", { sessionKey: key, del, root: saved.root, members: saved.members.length });
+    return { ok: true, delegateTree: saved.tree, orchestratorId: saved.root, agentIds: saved.members.join(",") };
+  }
+
   /** Attacca agenti a UN padre (atomico): li stacca da qualsiasi altro padre e li
    *  mette sotto `parentId`. È IL modo in cui la UI aggiunge un sub-agent. */
   attachToParent(key: string, parentId: string, ids: string[]) {

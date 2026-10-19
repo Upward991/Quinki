@@ -480,11 +480,6 @@ export function AgentGraphSheet(props: Props) {
               // se non c'era, il padre diventa orchestrator
               if (!orchId && props.sessionKey) { try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor }) } catch {} }
               await Promise.all([reloadAgents(), reloadOrch()])
-              // È un agente DELLA CHAT: entra anche nella lista agenti della sessione
-              try {
-                const ids2 = [...new Set([...chatIds, ...ids])]
-                await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: ids2.join(',') })
-            } catch {} finally { setSubFor(null) }
               dlog('add-done', { parent: subFor, ids, tree, chatIds, orch: orchId })
               setSubFor(null)
             } catch {}

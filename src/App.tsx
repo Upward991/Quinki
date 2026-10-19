@@ -648,20 +648,12 @@ export default function App() {
       },
       [e, o],
     ),
-  /** Rimozione SUB-AGENTI (non agenti della chat): toglie solo dai padri, per la chat aperta. */
+  /** Rimozione agenti (ATOMICA): un solo RPC al motore — niente loop, niente stati vecchi. */
   zr = useCallback(
     async (ids) => {
       const sk = o || e.activeSessionId || ``
       if (!sk || !Array.isArray(ids) || !ids.length) return
-      let tree = {}
-      try {
-        const r = await e.call('listSessions', {})
-        const s2 = (r?.sessions || []).find((x) => x.key === sk)
-        tree = { ...(s2?.delegateTree || {}) }
-      } catch {}
-      const t2 = {}
-      for (const k of Object.keys(tree)) t2[k] = (tree[k] || []).filter((x) => !ids.includes(x))
-      try { await e.call('setSessionDelegateTree', { sessionKey: sk, tree: t2 }) } catch {}
+      try { await e.call('detachNodes', { sessionKey: sk, ids }) } catch {}
       try { await e.refreshSessions?.() } catch {}
     },
     [e, o],

@@ -524,12 +524,9 @@ export function ChatHeader(props: ChatHeaderProps) {
                   onClick={async () => {
                     const ids = confirmDelete === 'selected' ? Array.from(selectedForRemoval) : [confirmDelete]
                     // PERCORSO ORIGINALE: onAgentToggle per ogni agente della chat
-                    for (const id of ids) {
-                      if (isRootNode(id)) continue
-                      try { props.onAgentToggle(id) } catch {}
-                    }
-                    // i sub-agent (non in chat) escono dal loro padre
-                    try { await (props as any).onRemoveSubAgents?.(ids) } catch {}
+                    // UNA sola operazione atomica (niente loop con stati vecchi!)
+                    const real = ids.filter((id) => !isRootNode(id))
+                    try { await (props as any).onRemoveNodes?.(real) } catch {}
                     setSelectedForRemoval(new Set()); setMultiSelect(false); setConfirmDelete(null); setGraphRefresh(v => v + 1)
                   }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
