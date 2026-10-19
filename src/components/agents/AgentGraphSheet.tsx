@@ -403,7 +403,10 @@ export function AgentGraphSheet(props: Props) {
             const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
             try {
               await rpc('updateAgent', { id: subFor, config: { delegates: [...new Set([...cur, ...ids])] } })
-              if (!orchId && props.onSetOrchestrator) props.onSetOrchestrator(subFor)
+              // Il ruolo lo scrivo DIRETTAMENTE (non via app): così il grafo non resta piatto
+              if (!orchId && props.sessionKey) {
+                await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor })
+              }
               await reloadAgents()   // ridisegna subito, senza uscire e rientrare
               setSubFor(null)
             } catch {}
