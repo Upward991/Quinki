@@ -4444,18 +4444,23 @@ Read this file to view it.` }] };
   }
 
   /** Scrive albero + campi derivati (agentIds/orchestratorId) in un colpo solo. */
-  #saveChatTree(key: string, treeIn: Record<string, string[]>, rootOverride?: string) {
+  #saveChatTree(key: string, treeIn: Record<string, string[]>, rootOverride?: string, membersIn?: string[]) {
     const m = this.#readChatMetaFile(key) || {};
     const s = this.#entries.get(key) as any;
     const members: string[] = [];
     const add = (id: any) => { const v = String(id || "").trim(); if (v && !members.includes(v)) members.push(v); };
-    String((m as any)?.agentIds ?? s?.agentId ?? "").split(",").forEach(add);
-    for (const [pid, kids] of Object.entries(treeIn || {})) { add(pid); (kids || []).forEach(add); }
+    // membersIn = elenco ESATTO dei nodi (chi rimuove lo passa: un nodo tolto non deve tornare)
+    if (Array.isArray(membersIn)) membersIn.forEach(add);
+    else {
+      String((m as any)?.agentIds ?? s?.agentId ?? "").split(",").forEach(add);
+      for (const [pid, kids] of Object.entries(treeIn || {})) { add(pid); (kids || []).forEach(add); }
+    }
     const kidsAll = new Set(Object.values(treeIn || {}).flat() as string[]);
     const root = rootOverride && members.includes(rootOverride) ? rootOverride : (members.find((id) => !kidsAll.has(id)) || members[0] || "");
     const ordered = [root, ...members.filter((x) => x && x !== root)].filter(Boolean);
     const clean: Record<string, string[]> = {};
     for (const id of ordered) clean[id] = (treeIn[id] || []).filter((x) => x && x !== id && ordered.includes(x));
+    for (const id of Object.keys(treeIn || {})) if (!ordered.includes(id)) delete clean[id];
     if (seenGuard(clean, root)) {
       for (const pid of Object.keys(clean)) clean[pid] = clean[pid].filter((x) => x !== root);
     }
@@ -4661,7 +4666,7 @@ Read this file to view it.` }] };
       if (parent && tree[parent]) tree[parent] = [...new Set([...tree[parent], ...kids])];
       else if (root) tree[root] = [...new Set([...(tree[root] || []), ...kids])];
     }
-    this.#saveChatTree(key, tree, root);
+    this.#saveChatTree(key, tree, root, want);
     this.logDebug("set-chat-agents", { sessionKey: key, agentIds, members: want.length });
     if (this.#active.has(key)) this.#safeRecreateSession(key, "chat-agents-changed");
   }
@@ -4685,7 +4690,8 @@ Read this file to view it.` }] };
     // Unico stato della chat = ALBERO. Se arriva l'albero, quello vince; altrimenti
     // si applica la lista agenti (aggiunta = figlio della radice) — poi si deriva tutto.
     if (st.delegateTree && typeof st.delegateTree === "object") {
-      const saved = this.#saveChatTree(key, st.delegateTree, st.orchestratorId || undefined);
+      const mem = typeof st.agentIds === "string" ? st.agentIds.split(",").map((x) => x.trim()).filter(Boolean) : undefined;
+      const saved = this.#saveChatTree(key, st.delegateTree, st.orchestratorId || undefined, mem);
       this.logDebug("set-chat-state", { sessionKey: key, mode: "tree", root: saved.root, members: saved.members.length });
       return { ok: true, agentIds: saved.members.join(","), orchestratorId: saved.root, delegateTree: saved.tree };
     }

@@ -92,10 +92,15 @@ export function ChatHeader(props: ChatHeaderProps) {
   // Orchestrator come RUOLO (10 ott): il designato di questa chat, o il legacy 'orchestrator' in lista.
   // MAI un orchestrator automatico: il ruolo esiste solo se è stato scelto (sessione).
   const effOrch = (props as any).orchestratorId || null
+  /** La chat è un ALBERO: la radice (= orchestrator) non si rimuove. */
+  const rootOfChat = ((props as any).session?.orchestratorId || effOrch || '') as string
+  const chatNodeCount = String((props as any).session?.agentId || '').split(',').filter(Boolean).length
+  const isRootNode = (id: string | null) => !!id && id === rootOfChat && chatNodeCount > 1
   const chatHasOneAgent = props.selectedAgentIds.length <= 1
   const agentListRef = useRef<HTMLDivElement>(null)
   const [modelPickerFor, setModelPickerFor] = useState<string | null>(null)
   const [graphRefresh, setGraphRefresh] = useState(0)
+  const [removeBlocked, setRemoveBlocked] = useState(false)
   const { call: rpc } = useSidecarContext()
   const [thinkingPickerFor, setThinkingPickerFor] = useState<string | null>(null)
   const [addAgentOpen, setAddAgentOpen] = useState(false)
@@ -479,16 +484,27 @@ export function ChatHeader(props: ChatHeaderProps) {
               <button onClick={() => { setMultiSelect(true); setSelectedForRemoval(new Set([ctxMenu.agentId])); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Select</button>
             )}
             {!multiSelect && (
-              <button onClick={() => { setConfirmDelete(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Remove</button>
+              <button onClick={() => { if (isRootNode(ctxMenu.agentId)) { setRemoveBlocked(true); setCtxMenu(null); return } setConfirmDelete(ctxMenu.agentId); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Remove</button>
             )}
             {multiSelect && (
               <button onClick={() => { setMultiSelect(false); setSelectedForRemoval(new Set()); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Deselect all</button>
             )}
             {multiSelect && selectedForRemoval.size > 0 && (
-              <button onClick={() => { setConfirmDelete('selected'); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Remove {selectedForRemoval.size} agent{selectedForRemoval.size > 1 ? 's' : ''}</button>
+              <button onClick={() => { if (isRootNode(rootOfChat) && Array.from(selectedForRemoval).includes(rootOfChat)) { setRemoveBlocked(true); setCtxMenu(null); return } setConfirmDelete('selected'); setCtxMenu(null) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '14px', fontFamily: 'var(--font-interface)' }} onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)' }} onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>Remove {selectedForRemoval.size} agent{selectedForRemoval.size > 1 ? 's' : ''}</button>
             )}
           </div>
         </>
+      )}
+
+      {removeBlocked && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 650, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setRemoveBlocked(false)}>
+          <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>You can't remove the orchestrator. Assign the role to another agent first.</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setRemoveBlocked(false)} style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--q-border)', backgroundColor: 'var(--q-bg-panel)', color: 'var(--q-text)', fontSize: '14px', fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>OK</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmDelete && (
@@ -509,6 +525,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     const ids = confirmDelete === 'selected' ? Array.from(selectedForRemoval) : [confirmDelete]
                     // PERCORSO ORIGINALE: onAgentToggle per ogni agente della chat
                     for (const id of ids) {
+                      if (isRootNode(id)) continue
                       try { props.onAgentToggle(id) } catch {}
                     }
                     // i sub-agent (non in chat) escono dal loro padre

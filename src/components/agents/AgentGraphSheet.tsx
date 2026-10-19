@@ -104,18 +104,6 @@ export function AgentGraphSheet(props: Props) {
       if (ids.length) setLocalChatIds(ids)
       const __tree = ((s as any)?.delegateTree || {}) as Record<string, string[]>
       setTree(__tree)
-      // SOLO UI: se è rimasto un agente senza sub-agent, il ruolo non serve più → lo azzero
-      try {
-        const __ids = String(s?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
-        const __noKids = Object.keys(__tree).every(k => (__tree[k] || []).filter((x: string) => x && x !== k).length === 0)
-        if (__ids.length <= 1 && __noKids && s?.orchestratorId && !clearingOrch.current) {
-          clearingOrch.current = true
-          await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
-          clearingOrch.current = false
-          setLocalOrch('')
-          dlog('orch-cleared', { ids: __ids })
-        }
-      } catch { clearingOrch.current = false }
       dlog('reload-orch', { sessionKey: props.sessionKey, agentId: s?.agentId, orch: s?.orchestratorId, tree: (s as any)?.delegateTree })
     } catch {} finally { refreshing.current = false }
   }
@@ -487,7 +475,11 @@ export function AgentGraphSheet(props: Props) {
             dlog('add-click', { parent: subFor, ids, treeBefore: tree, chatBefore: chatIds })
             try {
               // ALBERO (strato nuovo): scrivi la struttura della chat
-              await saveTree({ ...tree, [subFor]: [...new Set([...(tree[subFor] || []), ...ids])] })
+              // ALBERO: un nodo ha UN SOLO padre → staccalo dagli altri, poi attaccalo a X
+              const nextTree: Record<string, string[]> = {}
+              for (const [pid, kids] of Object.entries(tree)) nextTree[pid] = (kids || []).filter((x: string) => !ids.includes(x))
+              nextTree[subFor] = [...new Set([...(nextTree[subFor] || []), ...ids])]
+              await saveTree(nextTree)
               // CHAT (percorso originale): aggiungi gli agenti come ha sempre fatto l'app
               for (const id of ids) { if (!chatIds.includes(id)) { try { props.onAddToChat(id) } catch {} } }
               // se non c'era, il padre diventa orchestrator
