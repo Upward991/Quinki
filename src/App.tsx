@@ -648,6 +648,16 @@ export default function App() {
       },
       [e, o],
     ),
+  /** CHANGE AGENT: sostituisce la lista in un colpo (mai "zero agenti" a metà). */
+  zz = useCallback(
+    (ids) => {
+      let sk = o || e.activeSessionId || ``
+      if (!sk) return
+      l(ids)
+      e.setChatAgents(sk, ids)
+    },
+    [e, o],
+  ),
       /** Sidebar della tab chat: mostra/nasconde (l'altra tab la tiene pinnata). */
   T = useCallback(() => {
       t === `chat` && i((e) => (e === `pinned` ? `hidden` : `pinned`))
@@ -1099,6 +1109,7 @@ export default function App() {
                   agents: e.agents,
                   selectedAgentIds: c,
                   onAgentToggle: w,
+                  onSetChatAgents: zz,
                   agentOverrides: e.agentOverrides,
                   onSetAgentOverride: (agentId, ov) => {
                     e.setAgentOverride(`__app_expert__`, agentId, ov)
@@ -1998,6 +2009,7 @@ export default function App() {
                     agents: N,
                     selectedAgentIds: c,
                     onAgentToggle: w,
+                    onSetChatAgents: zz,
                     orchestratorId:
                       ((e.sessions || []).find((x) => x.id === skAct) || {}).orchestratorId || null,
                     onSetOrchestrator: (aid) => {
@@ -2218,6 +2230,7 @@ export default function App() {
                     agents: N,
                     selectedAgentIds: c,
                     onAgentToggle: w,
+                    onSetChatAgents: zz,
                     agentOverrides: e.agentOverrides,
                     onSetAgentOverride: (agentId, ov) => {
                       let sk = o || e.activeSessionId || ``

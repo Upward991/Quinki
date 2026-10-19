@@ -608,11 +608,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                   })}
                 onRequestRemoveSelected={() => setConfirmDelete('selected')}
                 onCancelSelect={() => { setMultiSelect(false); setSelectedForRemoval(new Set()) }}
-                onChangeAgent={(id) => {
-                  const cur = String((props as any).session?.agentId || '').split(',').filter(Boolean)
-                  if (cur.length === 1) (props as any).onAgentToggle?.(cur[0]) // togli il vecchio
-                  ;(props as any).onAgentToggle?.(id)                      // metti il nuovo
-                }}
+                onChangeAgent={(id) => (props as any).onSetChatAgents?.([id])}
                 onPickModel={(id) => setModelPickerFor(id)}
                 onPickThinking={(id) => setThinkingPickerFor(id)}
                 onRefreshAgents={(props as any).onRefreshAgents}
@@ -836,7 +832,8 @@ export function AgentPickerModal({ agents, initialSelected, onClose, onAdd, embe
   const filtered = available.filter(a => a.name.toLowerCase().includes(query.toLowerCase()))
     // single = "cambia agente": ne scegli UNO e via.
     const toggle = (id: string) => {
-      if (single) { onAdd([id]); return }
+      // single = "change agent": una sola scelta, ma si conferma con il tasto Add.
+      if (single) { setSelected(new Set([id])); return }
       setSelected(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
     }
   return (

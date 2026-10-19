@@ -62,13 +62,12 @@ export function AgentGraphSheet(props: Props) {
 
   const laid = useMemo(() => {
     const nodes: TNode[] = []
-    const newRoot = (id: string): TNode => ({ id, agent: byId[id], depth: 0, x: 0, y: 0, children: [], isOrch: false })
 
-    const build = (id: string, depth: number, chain: Set<string>): TNode | null => {
+    const build = (id: string, depth: number, chain: Set<string>, markOrch: boolean): TNode | null => {
       const agent = byId[id]
       if (!agent) return null
       let kidsIds: string[] = []
-      if (depth === 0) {
+      if (depth === 0 && markOrch) {
         const declared = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
         kidsIds = declared.length ? declared : chatAgentIds.filter(x => x !== id)
       } else {
@@ -77,39 +76,53 @@ export function AgentGraphSheet(props: Props) {
       const kids: TNode[] = []
       for (const k of kidsIds) {
         if (k === id || chain.has(k) || !byId[k]) continue
-        const n = build(k, depth + 1, new Set([...chain, k]))
+        const n = build(k, depth + 1, new Set([...chain, k]), markOrch)
         if (n) kids.push(n)
       }
-      return { id, agent, depth, x: 0, y: 0, children: kids, isOrch: depth === 0 }
+      return { id, agent, depth, x: 0, y: 0, children: kids, isOrch: markOrch && depth === 0 }
     }
 
-    if (orchId) {
-      const root = build(orchId, 0, new Set([orchId]))
-      if (!root) return { nodes, width: 0, height: 0 }
-      const measure = (n: TNode): number => {
-        if (!n.children.length) { n.x = 0; return 1 }
-        const ws = n.children.map(measure)
-        const total = ws.reduce((a, b) => a + b, 0)
-        let acc = 0
-        n.children.forEach((c, i) => { c.x = acc + ws[i] / 2 - total / 2; acc += ws[i] })
-        return total
-      }
+    const measure = (n: TNode): number => {
+      if (!n.children.length) { n.x = 0; return 1 }
+      const ws = n.children.map(measure)
+      const total = ws.reduce((a, b) => a + b, 0)
+      let acc = 0
+      n.children.forEach((c, i) => { c.x = acc + ws[i] / 2 - total / 2; acc += ws[i] })
+      return total
+    }
+
+    const unitW = NODE_W + GAP_X
+    const H = soloUno ? H_DUE : (orchId ? H_TRE : H_DUE)
+    const placeTree = (root: TNode, offsetX: number) => {
       const units = measure(root)
-      const unitW = NODE_W + GAP_X
-      const H = soloUno ? H_DUE : (orchId ? H_TRE : H_DUE)
-      const yFor = (d: number) => d === 0 ? 0 : ROOT_H + GAP_Y + (d - 1) * (H + GAP_Y)
-      const place = (n: TNode, cx: number) => { n.x = cx + n.x * unitW; n.y = yFor(n.depth); nodes.push(n); for (const c of n.children) place(c, n.x) }
-      place(root, (units - 1) * unitW / 2)
-      const minX = Math.min(...nodes.map(n => n.x))
-      for (const n of nodes) n.x -= minX
-      const maxY = Math.max(...nodes.map(n => n.y + cardH(n)))
-      return { nodes, width: Math.max(...nodes.map(n => n.x)) + NODE_W, height: maxY }
+      const place = (n: TNode, cx: number) => {
+        n.x = cx + n.x * unitW
+        n.y = n.depth * (H + GAP_Y) + (n.depth === 0 ? 0 : ROOT_H - H) // la radice orch è più bassa
+        nodes.push(n)
+        for (const c of n.children) place(c, n.x)
+      }
+      place(root, offsetX + (units - 1) * unitW / 2)
+      return units * unitW
     }
 
-    // Nessun orchestrator → riga piatta, nessun ruolo
-    const flat = chatAgentIds.filter(id => byId[id])
-    flat.forEach((id, i) => { const n = newRoot(id); n.x = i * (NODE_W + GAP_X); n.y = 0; nodes.push(n) })
-    return { nodes, width: flat.length ? flat.length * (NODE_W + GAP_X) - GAP_X : 0, height: soloUno ? H_DUE : H_DUE }
+    let width = 0
+    if (orchId) {
+      const root = build(orchId, 0, new Set([orchId]), true)
+      if (!root) return { nodes, width: 0, height: 0 }
+      width = placeTree(root, 0)
+    } else {
+      // Nessun orchestrator: foresta — ogni agente della chat CON I SUOI sub-agent
+      const roots = chatAgentIds.filter(id => byId[id]).map(id => build(id, 0, new Set([id]), false)).filter(Boolean) as TNode[]
+      if (!roots.length) return { nodes, width: 0, height: 0 }
+      let offset = 0
+      for (const r of roots) { offset += placeTree(r, offset); offset += GAP_X }
+      width = offset - GAP_X
+    }
+
+    const minX = Math.min(...nodes.map(n => n.x))
+    for (const n of nodes) n.x -= minX
+    const maxY = Math.max(...nodes.map(n => n.y + cardH(n)))
+    return { nodes, width, height: maxY }
   }, [orchId, byId, chatAgentIds, soloUno])
 
   const [zoom, setZoom] = useState(1)
@@ -326,7 +339,8 @@ function Chip({ children, icon, onClick, picked }: any) {
       onMouseEnter={(e: any) => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
       onMouseLeave={(e: any) => (e.currentTarget.style.backgroundColor = 'transparent')}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4, padding: '1px 8px', borderRadius: 999,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        padding: '2px 9px', borderRadius: 999, lineHeight: 1,
         border: `1px solid ${picked ? 'rgba(255,255,255,.5)' : 'var(--q-border)'}`,
         fontSize: 10.5, color: picked ? '#fff' : 'var(--q-text-secondary)',
         fontFamily: 'var(--font-interface)', cursor: 'pointer', whiteSpace: 'nowrap',
