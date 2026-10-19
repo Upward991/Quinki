@@ -260,11 +260,16 @@ export function AgentGraphSheet(props: Props) {
     // ══ REGOLA CRITICA: se l'agente è IN CHAT si toglie SOLO dalla chat.
     // Le `delegates` sono GLOBALI (condivise da tutte le chat): toccarle qui
     // cambierebbe anche le altre chat!
-    if (inChat) {
-      try { props.onToggleChatAgent(id) } catch {}
-      await Promise.all([reloadAgents(), reloadOrch()])
-      return
-    }
+    // Esce dall'ALBERO e dalla CHAT (sono la stessa cosa: tutti i nodi sono agenti della chat)
+    const t2: Record<string, string[]> = {}
+    for (const [pid, kids] of Object.entries(tree)) t2[pid] = (kids || []).filter((x: string) => x !== id)
+    await saveTree(t2)
+    try {
+      const next = chatIds.filter((x: string) => x !== id)
+      if (next.length) await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: next.join(',') })
+    } catch {}
+    await Promise.all([reloadAgents(), reloadOrch()])
+    if (inChat) return
     const kids: string[] = (delegateTree[id] || [])
     // 1) sostituisci il nodo con i suoi figli, in ogni padre che lo contiene
     for (const pid of Object.keys(byId)) {
@@ -463,6 +468,11 @@ export function AgentGraphSheet(props: Props) {
             const cur: string[] = (delegateTree[subFor] || [])
             try {
               await saveTree({ ...tree, [subFor]: [...new Set([...cur, ...ids])] })
+              // È un agente DELLA CHAT: entra anche nella lista agenti della sessione
+              try {
+                const ids2 = [...new Set([...chatIds, ...ids])]
+                await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: ids2.join(',') })
+              } catch {}
               // Il ruolo lo scrivo DIRETTAMENTE (non via app): così il grafo non resta piatto
               if (!orchId && props.sessionKey) {
                 await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor })
