@@ -508,7 +508,7 @@ export function ChatHeader(props: ChatHeaderProps) {
                     const fn = (window as any).__quinkiRemoveNode
                     if (confirmDelete === 'selected') {
                       const ids = Array.from(selectedForRemoval)
-                      // Lista agenti AUTOREVOLE dal motore (la prop può essere vecchia)
+                      // Lista agenti AUTOREVOLE (dal motore), poi UNA SOLA scrittura
                       let cur: string[] = String((props as any).session?.agentId || '').split(',').filter(Boolean)
                       try {
                         const r: any = await rpc('listSessions', {})
@@ -516,14 +516,11 @@ export function ChatHeader(props: ChatHeaderProps) {
                         const s2 = (r?.sessions || []).find((x: any) => x.key === sk)
                         if (s2) cur = String(s2.agentId || '').split(',').filter(Boolean)
                       } catch {}
-                      // Agenti della chat → toggle originale, uno per uno
-                      for (const id of ids.filter((x: string) => cur.includes(x))) {
-                        try { props.onAgentToggle(id) } catch {}
-                      }
-                      // Sub-agent → tolti dal padre
-                      for (const id of ids.filter((x: string) => !cur.includes(x))) {
-                        try { await (fn ? fn(id) : Promise.resolve()) } catch {}
-                      }
+                      const notInChat = ids.filter((x: string) => !cur.includes(x))
+                      let next = cur.filter((x: string) => !ids.includes(x))
+                      if (next.length === 0) next = [cur[0]] // unica protezione: la chat non resta vuota
+                      try { await (props as any).onSetChatAgents?.(next) } catch {}
+                      for (const id of notInChat) { try { await (fn ? fn(id) : Promise.resolve()) } catch {} }
                       setSelectedForRemoval(new Set()); setMultiSelect(false)
                     } else {
                       try { await (fn ? fn(confirmDelete) : props.onAgentToggle(confirmDelete)) } catch {}

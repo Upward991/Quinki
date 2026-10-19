@@ -262,7 +262,7 @@ export function AgentGraphSheet(props: Props) {
     // cambierebbe anche le altre chat!
     if (inChat) {
       try { props.onToggleChatAgent(id) } catch {}
-      await reloadAgents(); await reloadOrch()
+      await Promise.all([reloadAgents(), reloadOrch()])
       return
     }
     const kids: string[] = (delegateTree[id] || [])
@@ -286,8 +286,7 @@ export function AgentGraphSheet(props: Props) {
         await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
       } catch {}
     }
-    const fresh = await reloadAgents()
-    await reloadOrch()
+    const [fresh] = await Promise.all([reloadAgents(), reloadOrch()])
     // Se è rimasto UN SOLO nodo (un agente senza sub-agent) il ruolo non serve più.
     try {
       const sess: any = await rpc('listSessions', {})
@@ -469,8 +468,7 @@ export function AgentGraphSheet(props: Props) {
                 await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor })
                 setLocalOrch(subFor)
               }
-              await reloadAgents()   // ridisegna subito, senza uscire e rientrare
-              await reloadOrch()
+              await Promise.all([reloadAgents(), reloadOrch()])   // ridisegna subito
               setSubFor(null)
             } catch {}
           }}
