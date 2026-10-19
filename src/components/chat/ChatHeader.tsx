@@ -619,7 +619,8 @@ export function ChatHeader(props: ChatHeaderProps) {
                   if (next.length !== cur.length) (props as any).onSetChatAgents?.(next)
                   setTimeout(() => (props as any).onSetOrchestrator?.(id), 250)
                 }}
-                onRemoveFromChat={(id) => props.onAgentToggle(id)}
+                // Rimozione dalla chat: SEMPRE con il dialogo di conferma originale
+                onRemoveFromChat={(id) => setConfirmDelete(id)}
                 onSelectAgent={(id) => {
                   const cur = String((props as any).session?.agentId || '').split(',').filter(Boolean)
                   if (!cur.includes(id)) (props as any).onSetChatAgents?.([...cur, id])

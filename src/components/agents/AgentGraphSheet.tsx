@@ -69,9 +69,8 @@ export function AgentGraphSheet(props: Props) {
   const soloUno = chatAgentIds.length <= 1 && !(chatAgentIds.length === 1 && Array.isArray(byId[chatAgentIds[0]]?.delegates) && byId[chatAgentIds[0]].delegates.length > 0)
   const [subFor, setSubFor] = useState<string | null>(null)
   const [changeFor, setChangeFor] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
   const [subMenu, setSubMenu] = useState<{ id: string; x: number; y: number } | null>(null)
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2200); return () => clearTimeout(t) }, [toast])
+  const [confirmSub, setConfirmSub] = useState<string | null>(null)
 
   // altezza reale della card in base a cosa contiene
   const cardH = (n: TNode) => n.isOrch ? ROOT_H : (soloUno ? H_DUE : (orchId ? H_TRE : H_DUE))
@@ -334,13 +333,11 @@ export function AgentGraphSheet(props: Props) {
           onAdd={async (ids: string[]) => {
             const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
             try {
-              const res: any = await rpc('updateAgent', { id: subFor, config: { delegates: [...new Set([...cur, ...ids])] } })
-              if (res && res.success === false) { alert('Add sub agent failed: ' + (res.error || 'unknown')); return }
-              if (!orchId) { try { props.onSetOrchestrator(subFor); setToast(`${byId[subFor]?.name || subFor} is now the orchestrator`) } catch {} }
+              await rpc('updateAgent', { id: subFor, config: { delegates: [...new Set([...cur, ...ids])] } })
+              if (!orchId && props.onSetOrchestrator) props.onSetOrchestrator(subFor)
               props.onRefreshAgents?.()
-              setToast(`Added ${ids.length} sub agent${ids.length > 1 ? 's' : ''}`)
               setSubFor(null)
-            } catch (e: any) { alert('Add sub agent failed: ' + (e?.message || String(e))) }
+            } catch {}
           }}
         />
       )}
@@ -354,7 +351,7 @@ export function AgentGraphSheet(props: Props) {
           single
           onClose={() => setChangeFor(false)}
           onAdd={(ids: string[]) => {
-            if (ids[0]) { try { props.onChangeAgent(ids[0]); setToast('Agent changed') } catch (e: any) { alert('Change failed: ' + (e?.message || String(e))) } }
+            if (ids[0]) { try { props.onChangeAgent(ids[0]) } catch {} }
             setChangeFor(false)
           }}
         />
@@ -375,30 +372,54 @@ export function AgentGraphSheet(props: Props) {
             <div style={{ position: 'fixed', inset: 0, zIndex: 600 }} onClick={() => setSubMenu(null)} onContextMenu={(e) => { e.preventDefault(); setSubMenu(null) }} />
             <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 180), top: Math.min(subMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, minWidth: 170 }}>
               {item('Set as orchestrator', 'var(--q-text)', () => {
-                try { props.onMakeOrchestrator(subMenu.id); setToast(`${byId[subMenu.id]?.name || subMenu.id} is now the orchestrator`) } catch (e: any) { alert(String(e?.message || e)) }
+                try { props.onMakeOrchestrator(subMenu.id) } catch {}
                 setSubMenu(null)
               })}
               {item('Select', 'var(--q-text)', () => {
-                try { props.onSelectAgent(subMenu.id) } catch (e: any) { alert(String(e?.message || e)) }
+                try { props.onSelectAgent(subMenu.id) } catch {}
                 setSubMenu(null)
               })}
               {item('Remove', 'var(--q-accent-danger)', async () => {
-                if (inChat) { try { props.onRemoveFromChat(subMenu.id) } catch (e: any) { alert(String(e?.message || e)) } setSubMenu(null); return }
-                if (!parentId) { setSubMenu(null); return }
-                const cur: string[] = Array.isArray(byId[parentId]?.delegates) ? byId[parentId].delegates : []
-                try { await rpc('updateAgent', { id: parentId, config: { delegates: cur.filter(x => x !== subMenu.id) } }); props.onRefreshAgents?.(); setToast('Sub agent removed') } catch (e: any) { alert('Remove failed: ' + (e?.message || String(e))) }
-                setSubMenu(null)
+                if (inChat) { try { props.onRemoveFromChat(subMenu.id) } catch {} setSubMenu(null); return }
+                // sub-agent: conferma anche qui, come per gli agenti della chat
+                setConfirmSub(subMenu.id); setSubMenu(null)
               })}
             </div>
           </>
         )
       })()}
 
-      {toast && (
-        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 950, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '10px 16px', color: 'var(--q-text)', fontSize: 12.5, fontFamily: 'var(--font-interface)', boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
-          {toast}
-        </div>
-      )}
+      {/* Conferma rimozione sub-agent (stesso stile del dialogo originale) */}
+      {confirmSub && (() => {
+        const parentId = Object.keys(byId).find(pid => Array.isArray(byId[pid]?.delegates) && byId[pid].delegates.includes(confirmSub))
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 950, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={(e) => { if (e.target === e.currentTarget) setConfirmSub(null) }}>
+            <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '20px 24px', minWidth: 320, maxWidth: 400 }}>
+              <div style={{ color: 'var(--q-text)', fontSize: 16, fontFamily: 'var(--font-interface)', marginBottom: 20 }}>
+                Remove {byId[confirmSub]?.name || confirmSub} from {byId[parentId || '']?.name || 'parent'}?
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+                <button onClick={() => setConfirmSub(null)}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-text)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={async () => {
+                  if (!parentId) { setConfirmSub(null); return }
+                  const cur: string[] = Array.isArray(byId[parentId]?.delegates) ? byId[parentId].delegates : []
+                  try { await rpc('updateAgent', { id: parentId, config: { delegates: cur.filter(x => x !== confirmSub) } }); props.onRefreshAgents?.() } catch {}
+                  setConfirmSub(null)
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(217,107,107,0.12)')}
+                  onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-accent-danger)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: 13, fontFamily: 'var(--font-interface)', cursor: 'pointer' }}>Remove</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+
     </div>
   )
 }
