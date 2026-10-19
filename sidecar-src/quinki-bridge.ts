@@ -1270,7 +1270,7 @@ class QuinkiBridge {
           try {
             const t = this.#chatTreeOf(s.key);
             if (!t.members.length) return { agentId: "", orchestratorId: "", delegateTree: {} };
-            return { agentId: t.members.join(","), orchestratorId: t.root, delegateTree: t.tree };
+            return { agentId: t.members.join(","), orchestratorId: t.members.length > 1 ? t.root : "", delegateTree: t.tree };
           } catch { return {}; }
         })(),
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
@@ -4464,8 +4464,10 @@ Read this file to view it.` }] };
     if (seenGuard(clean, root)) {
       for (const pid of Object.keys(clean)) clean[pid] = clean[pid].filter((x) => x !== root);
     }
-    if (s) { (s as any).agentId = ordered.join(","); (s as any).orchestratorId = root || undefined; (s as any).delegateTree = clean; }
-    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: root, delegateTree: clean });
+    // UN SOLO agente = nessun ruolo di orchestrator (il ruolo esiste con una squadra)
+    const roleId = ordered.length > 1 ? root : "";
+    if (s) { (s as any).agentId = ordered.join(","); (s as any).orchestratorId = roleId || undefined; (s as any).delegateTree = clean; }
+    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean });
     try { this.#chatMetaCache.delete(key); } catch {}
     try { const send = (globalThis as any).__quinki_sendNotification; if (send) send("session_updated", { sessionKey: key, agentId: ordered.join(","), orchestratorId: root, label: s?.label }); } catch {}
     return { tree: clean, root, members: ordered };
@@ -4677,6 +4679,22 @@ Read this file to view it.` }] };
   // perde gli override model/thinking (usa quelli della chat, come da spec utente).
   /** Albero di delega della CHAT: { agenteId: [subAgentIds] }. Vive nella sessione:
    *  ogni chat ha il suo (non è una proprietà globale dell'agente). */
+  /** Attacca agenti a UN padre (atomico): li stacca da qualsiasi altro padre e li
+   *  mette sotto `parentId`. È IL modo in cui la UI aggiunge un sub-agent. */
+  attachToParent(key: string, parentId: string, ids: string[]) {
+    const t = this.#chatTreeOf(key);
+    const parent = String(parentId || "").trim();
+    const add = (Array.isArray(ids) ? ids : []).map(String).map((x) => x.trim()).filter(Boolean);
+    if (!parent || !add.length) return { ok: false, delegateTree: t.tree, orchestratorId: t.root };
+    const tree: Record<string, string[]> = {};
+    for (const [pid, kids] of Object.entries(t.tree)) tree[pid] = kids.filter((x) => !add.includes(x) && x !== parent);
+    tree[parent] = [...new Set([...(tree[parent] || []), ...add])];
+    const members = [...new Set([...t.members, parent, ...add])];
+    const saved = this.#saveChatTree(key, tree, t.root || parent, members);
+    this.logDebug("attach-to-parent", { sessionKey: key, parent, add, root: saved.root });
+    return { ok: true, delegateTree: saved.tree, orchestratorId: saved.root, agentIds: saved.members.join(",") };
+  }
+
   setSessionDelegateTree(key: string, tree: Record<string, string[]>) {
     const saved = this.#saveChatTree(key, tree || {});
     this.logDebug("set-delegate-tree", { sessionKey: key, nodes: Object.keys(saved.tree).length, root: saved.root });

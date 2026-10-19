@@ -533,6 +533,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   },
   setSessionChatState: async (p) => quinkiBridge!.setSessionChatState(String(p.sessionKey||''), p.state || {}),
   setSessionDelegateTree: async (p) => quinkiBridge!.setSessionDelegateTree(String(p.sessionKey||''), p.tree || {}),
+  attachToParent: async (p) => quinkiBridge!.attachToParent(String(p.sessionKey||''), String(p.parentId||''), Array.isArray(p.ids) ? p.ids.map(String) : []),
   setSessionOrchestrator: async (p) => {
     const key = String(p?.sessionKey || '');
     if (!key) return { ok: false, error: 'sessionKey is required.' };

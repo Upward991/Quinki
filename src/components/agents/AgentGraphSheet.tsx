@@ -161,7 +161,7 @@ export function AgentGraphSheet(props: Props) {
   const chatIds = localChatIds.length ? localChatIds : chatAgentIds
   const orchId = (localOrch && byId[localOrch]) ? localOrch : ''
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
-  const soloUno = chatIds.length <= 1 && !orchId
+  const soloUno = chatIds.length <= 1
   const [subFor, setSubFor] = useState<string | null>(null)
   const [changeFor, setChangeFor] = useState(false)
 
@@ -178,19 +178,17 @@ export function AgentGraphSheet(props: Props) {
       if (placed.has(id)) return null
       placed.add(id)
       let kidsIds: string[] = []
-      if (depth === 0 && markOrch) {
-        const declared = (delegateTree[id] || []).filter(Boolean)
-        kidsIds = [...new Set([...chatIds.filter(x => x !== id), ...declared])]
-      } else {
-        kidsIds = (delegateTree[id] || []).filter(Boolean)
-      }
+      // ALBERO = UNICA VERITÀ: la radice ha SOLO i figli dichiarati (non tutti gli agenti).
+      // Fallback solo per dati vecchi senza legami.
+      const declared = (delegateTree[id] || []).filter(Boolean)
+      kidsIds = declared.length ? declared : (depth === 0 && markOrch && chatIds.length > 1 ? chatIds.filter(x => x !== id) : [])
       const kids: TNode[] = []
       for (const k of kidsIds) {
         if (k === id || chain.has(k) || !byId[k] || kids.some(x => x.id === k)) continue
         const n = build(k, depth + 1, new Set([...chain, k]), markOrch)
         if (n) kids.push(n)
       }
-      return { id, agent, depth, x: 0, y: 0, children: kids, isOrch: markOrch && depth === 0 }
+      return { id, agent, depth, x: 0, y: 0, children: kids, isOrch: markOrch && depth === 0 && kids.length > 0 }
     }
 
     const measure = (n: TNode): number => {
@@ -475,11 +473,8 @@ export function AgentGraphSheet(props: Props) {
             dlog('add-click', { parent: subFor, ids, treeBefore: tree, chatBefore: chatIds })
             try {
               // ALBERO (strato nuovo): scrivi la struttura della chat
-              // ALBERO: un nodo ha UN SOLO padre → staccalo dagli altri, poi attaccalo a X
-              const nextTree: Record<string, string[]> = {}
-              for (const [pid, kids] of Object.entries(tree)) nextTree[pid] = (kids || []).filter((x: string) => !ids.includes(x))
-              nextTree[subFor] = [...new Set([...(nextTree[subFor] || []), ...ids])]
-              await saveTree(nextTree)
+              // ALBERO (motore): un nodo ha UN SOLO padre → attachToParent stacca e attacca
+              try { await rpc('attachToParent', { sessionKey: props.sessionKey, parentId: subFor, ids }) } catch {}
               // CHAT (percorso originale): aggiungi gli agenti come ha sempre fatto l'app
               for (const id of ids) { if (!chatIds.includes(id)) { try { props.onAddToChat(id) } catch {} } }
               // se non c'era, il padre diventa orchestrator
