@@ -2300,7 +2300,7 @@ class QuinkiBridge {
         if (e && Array.isArray((e as any).workdirHistory)) hist = (e as any).workdirHistory;
       }
     } catch {}
-    return { model, thinkingLevel, availableThinkingLevels, mode, agentId: (s as any)?.agentId, orchestratorId: (String((s as any)?.agentId || "").split(",").filter(Boolean).length > 1 ? ((s as any)?.orchestratorId || null) : null), agentOverrides: (s as any)?.agentOverrides || {}, workingDir: effWd, workdirHistory: hist, label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
+    return { model, thinkingLevel, availableThinkingLevels, mode, agentOverrides: this.#overridesOf(key), agentId: (s as any)?.agentId, orchestratorId: (String((s as any)?.agentId || "").split(",").filter(Boolean).length > 1 ? ((s as any)?.orchestratorId || null) : null), agentOverrides: (s as any)?.agentOverrides || {}, workingDir: effWd, workdirHistory: hist, label: s?.label, fallbackModels: (s as any)?.fallbackModels || [] };
   }
 
   setSessionFallbacks(key: string, models: string[]): { ok: boolean } {
@@ -4398,6 +4398,16 @@ Read this file to view it.` }] };
   /** Albero normalizzato { tree, root, members }. Migra le chat vecchie (agentIds+orchestratorId). */
   /** Versione del grafo = HASH dell'albero. Cambia se e solo se cambia la struttura,
    *  e nessun writer può desincronizzarla (non c'è nessun contatore da aggiornare). */
+  /** Override model/thinking per agente nella chat: UNICA FONTE = chat-meta.json
+   *  (fallback: copia in memoria). Dopo un riavvio la RAM può essere vuota. */
+  #overridesOf(key: string): Record<string, any> {
+    try {
+      const m: any = this.#readChatMetaFile(key);
+      if (m && m.agentOverrides && typeof m.agentOverrides === "object") return m.agentOverrides;
+    } catch {}
+    return (((this.#entries.get(key) as any)?.agentOverrides) || {});
+  }
+
   #graphVersion(key: string): string {
     try {
       const t = this.#chatTreeOf(key, { complete: false });
@@ -4503,7 +4513,13 @@ Read this file to view it.` }] };
       if (hist.length > HIST_MAX) hist = hist.slice(hist.length - HIST_MAX);
       pos = hist.length - 1;
     }
+    // Se la STRUTTURA è cambiata, i tool della sessione (delegate_to_agent) vanno
+    // ricostruiti SUBITO: senza questo l'orchestrator non poteva delegare fino al riavvio.
+    const _prevTreeJson = JSON.stringify((_m.delegateTree && typeof _m.delegateTree === "object") ? _m.delegateTree : {});
+    const _prevRoot = String(_m.orchestratorId || "");
     this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean, graphHistory: hist, graphPos: pos });
+    const _structureChanged = opts?.history !== false && (JSON.stringify(clean) !== _prevTreeJson || roleId !== _prevRoot);
+    if (_structureChanged) this.#refreshSessionTools(key);
     try { this.#chatMetaCache.delete(key); } catch {}
     try { const send = (globalThis as any).__quinki_sendNotification; if (send) send("session_updated", { sessionKey: key, agentId: ordered.join(","), orchestratorId: root, label: s?.label }); } catch {}
     return { tree: clean, root, members: ordered };
@@ -4737,6 +4753,25 @@ Read this file to view it.` }] };
     const saved = this.#saveChatTree(key, tree, root, members.length ? members : t.members);
     this.logDebug("detach-nodes", { sessionKey: key, del, root: saved.root, members: saved.members.length });
     return { ok: true, delegateTree: saved.tree, orchestratorId: saved.root, agentIds: saved.members.join(",") };
+  }
+
+  /** Aggiorna i tool della sessione VIVA dopo un cambio dell'albero (delegate_to_agent
+   *  presente solo se ha figli). NIENTE recreate: la ricreazione inietta un autoprompt
+   *  di recovery ("app interrupted") e sporca la conversazione. */
+  #refreshSessionTools(key: string) {
+    const pi: any = this.#active.get(key);
+    if (!pi) return;
+    try {
+      const agentId = this.#resolvePrimaryAgent(key) || "";
+      const cfg = this.#readAgentConfigFile(agentId) as any;
+      const wantsIt = (Array.isArray(cfg?.tools) && cfg.tools.includes("delegate_to_agent")) || this.#hasChildren(key, agentId);
+      let tools: any[] = Array.isArray(pi._customTools) ? [...pi._customTools] : [];
+      tools = tools.filter((t: any) => t?.name !== "delegate_to_agent");
+      if (wantsIt) { const t = this.#buildDelegateTool(key, { selfAgentId: agentId }); if (t) tools.push(t); }
+      pi._customTools = tools;
+      pi._refreshToolRegistry?.();
+      this.logDebug("session-tools-refreshed", { sessionKey: key, agentId, delegate: wantsIt });
+    } catch (e: any) { this.logDebug("session-tools-refresh-error", { sessionKey: key, error: e?.message }); }
   }
 
   /** Undo/Redo del GRAFO della chat (max 10 stati). Tornano agenti, ruolo e albero insieme
@@ -6678,7 +6713,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           } catch {}
           // Setta modello: prima controlla session override, poi agent config, poi sessione
           const mainSession = self.#active.get(sessionKey);
-          const sessionOverrides = (self.#entries.get(sessionKey) as any)?.agentOverrides || {};
+          const sessionOverrides = self.#overridesOf(sessionKey);
           const agentOverride = sessionOverrides[targetId] || {};
           const agentModelId = agentOverride.model;
           if (agentModelId) {
@@ -7013,8 +7048,11 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           // e chi posso chiamare ORA. Così il modello non deve indovinare né rileggere
           // il prompt: lo stato arriva nel punto attivo (ultimo messaggio). ===
           const gvNow = self.#graphVersion(sessionKey);
+          // Valori EFFETTIVI della sessione delegata (prova che l'override è applicato)
+          const effModel = (() => { try { return String((tempPi as any).model?.id || (tempPi as any).agent?.state?.model?.id || ""); } catch { return ""; } })();
+          const effThinking = (() => { try { return String((tempPi as any).thinkingLevel || (tempPi as any).agent?.state?.thinkingLevel || ""); } catch { return ""; } })();
           const youTxt = _you.is_root ? `${_you.name} (root of the chat)` : `${_you.name} (child of ${_nameOfX(_you.parent || "") || "?"})`;
-          const meta = `\n\n[delegation ok · answered by: ${agent_name || targetId} (${targetId}) · you: ${youTxt} · graph_version ${gvNow} · you can delegate to: ${rosterText}]`;
+          const meta = `\n\n[delegation ok · answered by: ${agent_name || targetId} (${targetId}) · model: ${effModel || "chat default"} · thinking: ${effThinking || "chat default"} · you: ${youTxt} · graph_version ${gvNow} · you can delegate to: ${rosterText}]`;
           return { content: [{ type: "text", text: String(responseText) + meta }], isError: false };
         } catch (e: any) {
           self.logDebug("delegate-tool-error", { sessionKey, error: e?.message || String(e) });
