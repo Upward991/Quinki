@@ -362,6 +362,9 @@ export function AgentGraphSheet(props: Props) {
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10, whiteSpace: 'nowrap' }}>
               {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'}
             </span>
+            <span style={{ color: 'var(--q-text-tertiary)', fontSize: 10.5, fontFamily: 'var(--font-mono, monospace)', marginLeft: 10, whiteSpace: 'nowrap' }}>
+              a{localAgents.length} c{chatIds.length} o{orchId || '-'} t{Object.keys(tree).length} n{laid.nodes.length}
+            </span>
             <div style={{ flex: 1 }} />
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
             <span style={{ minWidth: 42, textAlign: 'center', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{pct}%</span>
