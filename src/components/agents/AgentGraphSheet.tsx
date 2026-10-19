@@ -63,9 +63,10 @@ export function AgentGraphSheet(props: Props) {
     return m
   }, [agents])
 
-  // SOLO il ruolo scelto: nessuna assegnazione automatica. Se l'orchestrator viene
-  // rimosso il tree resta senza orchestrator e la chat lo segnala, come deve essere.
-  const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
+  // Ruolo: quello della sessione; se non c'è (chat a 1 agente il motore lo nasconde)
+  // vale la regola dell'utente: chi ha sub-agent È l'orchestrator.
+  const derivedOrch = chatAgentIds.find(id => Array.isArray(byId[id]?.delegates) && byId[id].delegates.length)
+  const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : (derivedOrch || '')
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
   const soloUno = chatAgentIds.length <= 1 && !(chatAgentIds.length === 1 && Array.isArray(byId[chatAgentIds[0]]?.delegates) && byId[chatAgentIds[0]].delegates.length > 0)
   const [subFor, setSubFor] = useState<string | null>(null)
@@ -223,8 +224,18 @@ export function AgentGraphSheet(props: Props) {
         if (nextChat.length) await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: nextChat.join(',') })
       } catch {}
     }
-    // 3) se era l'orchestrator → nessun ruolo (lo sceglierà l'utente)
-    if (id === orchId) { try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null }) } catch {} }
+    // 3) se era l'orchestrator: i figli diventano agenti di primo livello e lui
+    //    resta senza sub-agent → il ruolo NON viene riassegnato in automatico.
+    if (id === orchId) {
+      try {
+        if (kids.length) {
+          const nextChat = [...new Set([...chatAgentIds.filter(x => x !== id), ...kids])]
+          await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: nextChat.join(',') })
+        }
+        await rpc('updateAgent', { id, config: { delegates: [] } })
+        await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
+      } catch {}
+    }
     props.onRefreshAgents?.()
   }
 
