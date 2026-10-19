@@ -474,7 +474,7 @@ export function AgentGraphSheet(props: Props) {
               try {
                 const ids2 = [...new Set([...chatIds, ...ids])]
                 await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: ids2.join(',') })
-              } catch {}
+            } catch {} finally { setSubFor(null) }
               // Il ruolo lo scrivo DIRETTAMENTE (non via app): così il grafo non resta piatto
               if (!orchId && props.sessionKey) {
                 await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: subFor })
