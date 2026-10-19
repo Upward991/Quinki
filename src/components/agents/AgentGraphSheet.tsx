@@ -26,6 +26,7 @@ type Props = {
   onPickModel: (id: string) => void
   onPickThinking: (id: string) => void
   onRefreshAgents?: () => void
+  onSetOrchestrator: (id: string) => void
   agentOverrides?: Record<string, any>
   selectMode: boolean
   picked: Set<string>
@@ -44,6 +45,12 @@ type TNode = { id: string; agent: any; depth: number; x: number; y: number; chil
 
 export function AgentGraphSheet(props: Props) {
   const { call } = useSidecarContext()
+  // Canale RPC: preferiamo quello GLOBALE dell'app (sempre presente), con fallback al context.
+  const rpc = (m: string, p: any) => {
+    const w = (window as any).__sidecarCall
+    if (typeof w === 'function') return Promise.resolve(w(m, p))
+    return Promise.resolve(call ? call(m, p) : null)
+  }
   const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked } = props
 
   const byId = useMemo(() => {
@@ -314,7 +321,10 @@ export function AgentGraphSheet(props: Props) {
           onClose={() => setSubFor(null)}
           onAdd={async (ids: string[]) => {
             const cur: string[] = Array.isArray(byId[subFor]?.delegates) ? byId[subFor].delegates : []
-            try { await call('updateAgent', { id: subFor, config: { delegates: [...cur, ...ids] } }) } catch {}
+            try { await rpc('updateAgent', { id: subFor, config: { delegates: [...cur, ...ids] } }) } catch (e) {}
+            // REGOLA (19 ott): chi riceve un sub-agent diventa l'orchestrator della chat
+            // se non ce n'è ancora uno (poi si può cambiare col tasto destro).
+            if (!orchId) { try { props.onSetOrchestrator(subFor) } catch {} }
             props.onRefreshAgents?.()
             setSubFor(null)
           }}
