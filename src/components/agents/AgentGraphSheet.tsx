@@ -85,8 +85,6 @@ export function AgentGraphSheet(props: Props) {
   const soloUno = chatAgentIds.length <= 1 && !orchId
   const [subFor, setSubFor] = useState<string | null>(null)
   const [changeFor, setChangeFor] = useState(false)
-  const [subMenu, setSubMenu] = useState<{ id: string; x: number; y: number } | null>(null)
-  const [confirmSub, setConfirmSub] = useState<string | null>(null)
 
   // altezza reale della card in base a cosa contiene
   const cardH = (n: TNode) => n.isOrch ? ROOT_H : (soloUno ? H_DUE : (orchId ? H_TRE : H_DUE))
@@ -334,9 +332,7 @@ export function AgentGraphSheet(props: Props) {
                   onClick={() => { if (selectMode) props.onTogglePick(n.id); else props.onOpenAgent(n.id) }}
                   onContextMenu={(e) => {
                     e.preventDefault(); e.stopPropagation()
-                    // Agenti della chat → menu ORIGINALE. Sub-agent → lo stesso menu (stessi stili).
-                    if (chatAgentIds.includes(n.id)) props.onContextMenu(n.id, e.clientX, e.clientY)
-                    else setSubMenu({ id: n.id, x: e.clientX, y: e.clientY })
+                    props.onContextMenu(n.id, e.clientX, e.clientY) // UN SOLO menu, per tutti i nodi
                   }}
                   style={{
                     position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',
@@ -429,72 +425,6 @@ export function AgentGraphSheet(props: Props) {
           }}
         />
       )}
-
-      {/* Tasto destro: lo STESSO menu (3 voci) anche sui sub-agent */}
-      {subMenu && (() => {
-        const parentId = Object.keys(byId).find(pid => Array.isArray(byId[pid]?.delegates) && byId[pid].delegates.includes(subMenu.id))
-        const inChat = chatAgentIds.includes(subMenu.id)
-        const item = (label: string, color: string, fn: () => void) => (
-          <button onClick={fn}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', border: 'none', cursor: 'pointer', backgroundColor: 'transparent', color, fontSize: 14, fontFamily: 'var(--font-interface)', borderRadius: 'var(--radius-sm)' }}>{label}</button>
-        )
-        return (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 600 }} onClick={() => setSubMenu(null)} onContextMenu={(e) => { e.preventDefault(); setSubMenu(null) }} />
-            <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 180), top: Math.min(subMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, minWidth: 170 }}>
-              {selectMode ? (
-                <>
-                  {item('Deselect all', 'var(--q-text)', () => { props.onCancelSelect(); setSubMenu(null) })}
-                  {picked.size > 0 && item(`Remove ${picked.size} selected`, 'var(--q-accent-danger)', () => { props.onRequestRemoveSelected(); setSubMenu(null) })}
-                </>
-              ) : (
-                <>
-                  {chatAgentIds.length > 1 && subMenu.id !== orchId && item('Use as orchestrator', 'var(--q-text)', () => { makeOrchestrator(subMenu.id); setSubMenu(null) })}
-                  {chatAgentIds.length > 1 && item('Select', 'var(--q-text)', () => { props.onSelectAgent(subMenu.id); setSubMenu(null) })}
-                  {item('Remove', 'var(--q-accent-danger)', async () => {
-                    if (inChat) { props.onRemoveFromChat(subMenu.id); setSubMenu(null); return }
-                    setConfirmSub(subMenu.id); setSubMenu(null)
-                  })}
-                </>
-              )}
-            </div>
-          </>
-        )
-      })()}
-
-      {/* Conferma rimozione sub-agent — STESSI colori/stili del dialogo originale */}
-      {confirmSub && (() => {
-        const parentId = Object.keys(byId).find(pid => Array.isArray(byId[pid]?.delegates) && byId[pid].delegates.includes(confirmSub))
-        return (
-          <div style={{ position: 'fixed', inset: 0, zIndex: 650, backgroundColor: 'var(--q-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setConfirmSub(null)}>
-            <div style={{ backgroundColor: 'var(--q-bg-elevated)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: '24px', maxWidth: '400px', width: '90%' }} onClick={e => e.stopPropagation()}>
-              <div style={{ color: 'var(--q-text)', fontSize: '16px', fontFamily: 'var(--font-interface)', marginBottom: '20px' }}>
-                Remove {byId[confirmSub]?.name || confirmSub} from {byId[parentId || '']?.name || 'parent'}?
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px' }}>
-                <button
-                  onClick={() => setConfirmSub(null)}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)' }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
-                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)', backgroundColor: 'transparent', color: 'var(--q-accent-danger)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 400, cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => { await removeNode(confirmSub); setConfirmSub(null) }}
-                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
-                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
-                  style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
 
     </div>
   )
