@@ -37,6 +37,8 @@ type Props = {
   picked: Set<string>
   onContextMenu: (id: string, x: number, y: number) => void
   onTogglePick: (id: string) => void
+  onRequestRemoveSelected: () => void
+  onCancelSelect: () => void
 }
 
 const NODE_W = 210
@@ -58,11 +60,23 @@ export function AgentGraphSheet(props: Props) {
   }
   const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked } = props
 
+  // Copia locale: dopo un salvataggio rileggo gli agenti e ridisegno SUBITO,
+  // senza aspettare il refresh globale dell'app.
+  const [localAgents, setLocalAgents] = useState<any[]>(agents)
+  useEffect(() => { setLocalAgents(agents) }, [agents])
+  const reloadAgents = async () => {
+    try {
+      const r: any = await rpc('listAgents', {})
+      const list = r?.agents || []
+      if (Array.isArray(list) && list.length) setLocalAgents(list.map((a: any) => ({ ...a, delegates: Array.isArray(a.delegates) ? a.delegates : [] })))
+    } catch {}
+    try { props.onRefreshAgents?.() } catch {}
+  }
   const byId = useMemo(() => {
     const m: Record<string, any> = {}
-    for (const a of agents) m[a.id] = a
+    for (const a of localAgents) m[a.id] = a
     return m
-  }, [agents])
+  }, [localAgents])
 
   // Ruolo: SOLO quello scelto (ora il motore lo restituisce anche con 1 agente).
   // Niente derivazioni: senza ruolo il grafo resta senza orchestrator.
@@ -228,7 +242,7 @@ export function AgentGraphSheet(props: Props) {
         await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
       } catch {}
     }
-    props.onRefreshAgents?.()
+    await reloadAgents()
   }
 
   /** Porta un agente (di qualsiasi livello) a orchestrator: lo stacca dal padre,
@@ -243,7 +257,7 @@ export function AgentGraphSheet(props: Props) {
     const cur = chatAgentIds
     if (!cur.includes(id)) { try { await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: [...cur, id].join(',') }) } catch {} }
     try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: id }) } catch {}
-    props.onRefreshAgents?.()
+    await reloadAgents()
   }
 
   // La conferma ORIGINALE (in ChatHeader) deve usare la rimozione con promozione dei figli.
@@ -430,6 +444,13 @@ export function AgentGraphSheet(props: Props) {
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 600 }} onClick={() => setSubMenu(null)} onContextMenu={(e) => { e.preventDefault(); setSubMenu(null) }} />
             <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 180), top: Math.min(subMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, minWidth: 170 }}>
+              {selectMode ? (
+                <>
+                  {picked.size > 0 && item(`Remove ${picked.size} selected`, 'var(--q-accent-danger)', () => { props.onRequestRemoveSelected(); setSubMenu(null) })}
+                  {item('Cancel selection', 'var(--q-text)', () => { props.onCancelSelect(); setSubMenu(null) })}
+                </>
+              ) : (<>
+
               {item('Set as orchestrator', 'var(--q-text)', () => {
                 makeOrchestrator(subMenu.id)
                 setSubMenu(null)
@@ -443,6 +464,7 @@ export function AgentGraphSheet(props: Props) {
                 // sub-agent: conferma anche qui, come per gli agenti della chat
                 setConfirmSub(subMenu.id); setSubMenu(null)
               })}
+              </>)}
             </div>
           </>
         )
