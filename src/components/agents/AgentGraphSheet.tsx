@@ -75,6 +75,16 @@ export function AgentGraphSheet(props: Props) {
   }
   useEffect(() => { if (!localAgents.length) reloadAgents() }, [])
 
+  // Il ruolo va riletto dal motore: quando resta un solo agente il motore lo AZZERA
+  // e il grafo deve smettere di mostrare l'orchestrator.
+  const reloadOrch = async () => {
+    try {
+      const r: any = await rpc('listSessions', {})
+      const s = (r?.sessions || []).find((x: any) => x.key === props.sessionKey)
+      setLocalOrch((s?.orchestratorId || '') as string)
+    } catch {}
+  }
+
   const byId = useMemo(() => {
     const m: Record<string, any> = {}
     for (const a of localAgents) m[a.id] = a
@@ -246,6 +256,7 @@ export function AgentGraphSheet(props: Props) {
       } catch {}
     }
     await reloadAgents()
+    await reloadOrch()
   }
 
   /** Porta un agente (di qualsiasi livello) a orchestrator: lo stacca dal padre,
@@ -261,6 +272,7 @@ export function AgentGraphSheet(props: Props) {
     if (!cur.includes(id)) { try { await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: [...cur, id].join(',') }) } catch {} }
     try { await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: id }) } catch {}
     await reloadAgents()
+    await reloadOrch()
   }
 
   // La conferma ORIGINALE (in ChatHeader) deve usare la rimozione con promozione dei figli.
@@ -414,6 +426,7 @@ export function AgentGraphSheet(props: Props) {
                 setLocalOrch(subFor)
               }
               await reloadAgents()   // ridisegna subito, senza uscire e rientrare
+              await reloadOrch()
               setSubFor(null)
             } catch {}
           }}
