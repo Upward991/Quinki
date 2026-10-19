@@ -168,6 +168,8 @@ function mapAgent(a: any) {
     skills: (a.skills || []).map((s: string) => ({ name: s, source: 'local', installed: true })),
     tools: (a.tools || []).map((t: string) => ({ name: t, enabled: true })),
     mcpServers: Array.isArray(a.mcpServers) ? a.mcpServers : [],
+    // DELEGHE: senza questo il grafo non sa chi può delegare a chi (bug 19 ott)
+    delegates: Array.isArray(a.delegates) ? a.delegates : [],
     directory: a.directory || '',
     isDeletable: a.id !== 'orchestrator' && a.id !== 'app-expert' && a.id !== 'quinki',
   }
