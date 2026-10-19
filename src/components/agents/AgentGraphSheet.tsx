@@ -59,7 +59,7 @@ export function AgentGraphSheet(props: Props) {
     if (typeof w === 'function') return Promise.resolve(w(m, p))
     return Promise.resolve(call ? call(m, p) : null)
   }
-  const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked } = props
+  const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked, delegateTree = {} } = props
 
   // Copia locale: dopo un salvataggio rileggo gli agenti e ridisegno SUBITO,
   // senza aspettare il refresh globale dell'app.
