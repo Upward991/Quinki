@@ -237,27 +237,43 @@ export function AgentGraphSheet(props: Props) {
 
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
+  const panRef = useRef(pan); panRef.current = pan
   const zoomRef = useRef(zoom); zoomRef.current = zoom
-  const pinchRef = useRef<{ d0: number; z0: number } | null>(null)
+  // PINCH: si ancora allo stato INIZIALE del gesto (niente deriva, niente flash) e si
+  // aggiorna al massimo una volta per frame.
+  const pinchRef = useRef<{ d0: number; z0: number; mid0: { x: number; y: number }; pan0: { x: number; y: number } } | null>(null)
+  const rafRef = useRef<number | null>(null)
   const onTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       const [a, b] = [e.touches[0], e.touches[1]]
-      pinchRef.current = { d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1, z0: zoomRef.current }
+      const rect = viewRef.current?.getBoundingClientRect()
+      pinchRef.current = {
+        d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1,
+        z0: zoomRef.current,
+        mid0: { x: (a.clientX + b.clientX) / 2 - (rect?.left || 0), y: (a.clientY + b.clientY) / 2 - (rect?.top || 0) },
+        pan0: { ...panRef.current },
+      }
     }
   }
   const onTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length !== 2 || !pinchRef.current) return
+    const p0 = pinchRef.current
+    if (e.touches.length !== 2 || !p0) return
     e.preventDefault()
     const [a, b] = [e.touches[0], e.touches[1]]
     const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) || 1
-    const ratio = d / pinchRef.current.d0
-    const z0 = zoomRef.current
-    const next = Math.min(MAX_Z, Math.max(MIN_Z, pinchRef.current.z0 * ratio))
     const rect = viewRef.current?.getBoundingClientRect()
-    const mx = (a.clientX + b.clientX) / 2 - (rect?.left || 0)
-    const my = (a.clientY + b.clientY) / 2 - (rect?.top || 0)
-    setPan(p => ({ x: mx - (mx - p.x) * (next / z0), y: my - (my - p.y) * (next / z0) }))
-    setZoom(next)
+    const mid = { x: (a.clientX + b.clientX) / 2 - (rect?.left || 0), y: (a.clientY + b.clientY) / 2 - (rect?.top || 0) }
+    const next = Math.min(MAX_Z, Math.max(MIN_Z, p0.z0 * (d / p0.d0)))
+    const k = next / p0.z0
+    // pan = punto medio attuale - (punto medio iniziale - pan iniziale) * k
+    const nx = mid.x - (p0.mid0.x - p0.pan0.x) * k
+    const ny = mid.y - (p0.mid0.y - p0.pan0.y) * k
+    if (rafRef.current != null) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      setZoom(next)
+      setPan({ x: nx, y: ny })
+    })
   }
   const onTouchEnd = () => { if (pinchRef.current) pinchRef.current = null }
   const viewRef = useRef<HTMLDivElement>(null)
@@ -432,7 +448,7 @@ export function AgentGraphSheet(props: Props) {
         {laid.nodes.length === 0 ? (
           <div style={{ padding: 40, color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>No agents in this chat.</div>
         ) : (
-          <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: laid.width, height: laid.height }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`, transformOrigin: '0 0', willChange: 'transform', backfaceVisibility: 'hidden', width: laid.width, height: laid.height }}>
             <svg width={laid.width} height={laid.height} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}>
               {edges.map((e, i) => {
                 const x1 = e.from.x + NODE_W / 2
@@ -522,9 +538,6 @@ export function AgentGraphSheet(props: Props) {
         items={[
           { icon: <ChevronLeft size={18} />, label: canUndo ? 'Undo' : 'Undo (nothing to undo)', onSelect: () => { setSheetOpen(false); if (canUndo) void graphStep('undo') } },
           { icon: <ChevronRight size={18} />, label: canRedo ? 'Redo' : 'Redo (nothing to redo)', onSelect: () => { setSheetOpen(false); if (canRedo) void graphStep('redo') } },
-          { icon: <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>, label: `Zoom in (${pct}%)`, onSelect: () => setZoom(z => Math.min(MAX_Z, z * 1.15)) },
-          { icon: <span style={{ fontSize: 16, lineHeight: 1 }}>−</span>, label: 'Zoom out', onSelect: () => setZoom(z => Math.max(MIN_Z, z * 0.87)) },
-          { icon: <Maximize size={18} />, label: 'Fit to screen', onSelect: () => { setSheetOpen(false); fit() } },
         ]}
       />
 
