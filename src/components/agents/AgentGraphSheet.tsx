@@ -82,7 +82,11 @@ export function AgentGraphSheet(props: Props) {
     return null
   }
 
-  useEffect(() => { if (!localAgents.length) reloadAgents(); reloadOrch() }, [])
+  useEffect(() => {
+    if (!localAgents.length) reloadAgents()
+    reloadOrch()
+    dlog('graph-open', { sessionKey: props.sessionKey, chatIds, orchId, tree, agents: localAgents.length })
+  }, [])
 
   // Il ruolo va riletto dal motore: quando resta un solo agente il motore lo AZZERA
   // e il grafo deve smettere di mostrare l'orchestrator.
@@ -94,6 +98,7 @@ export function AgentGraphSheet(props: Props) {
       const ids = String(s?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
       if (ids.length) setLocalChatIds(ids)
       setTree(((s as any)?.delegateTree || {}) as Record<string, string[]>)
+      dlog('reload-orch', { sessionKey: props.sessionKey, agentId: s?.agentId, orch: s?.orchestratorId, tree: (s as any)?.delegateTree })
     } catch {}
   }
 
@@ -102,6 +107,10 @@ export function AgentGraphSheet(props: Props) {
     setTree(next)
     await reloadOrch()
   }
+
+
+  // Log diagnostico → ~/.quinki/agent-graph-debug.log (il client lo manda al motore)
+  const dlog = (tag: string, data: any) => { try { rpc('clientLog', { tag, data }) } catch {} }
 
   const byId = useMemo(() => {
     const m: Record<string, any> = {}
@@ -257,6 +266,7 @@ export function AgentGraphSheet(props: Props) {
    *  - se era l'orchestrator: il ruolo si azzera (NESSUN automatismo)
    */
   const removeNode = async (id: string) => {
+    dlog('remove-start', { id, inChat: chatIds.includes(id), tree, chatIds })
     const inChat = chatIds.includes(id)
     // ══ REGOLA CRITICA: se l'agente è IN CHAT si toglie SOLO dalla chat.
     // Le `delegates` sono GLOBALI (condivise da tutte le chat): toccarle qui
@@ -362,9 +372,7 @@ export function AgentGraphSheet(props: Props) {
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10, whiteSpace: 'nowrap' }}>
               {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'}
             </span>
-            <span style={{ color: 'var(--q-text-tertiary)', fontSize: 10.5, fontFamily: 'var(--font-mono, monospace)', marginLeft: 10, whiteSpace: 'nowrap' }}>
-              a{localAgents.length} c{chatIds.length} o{orchId || '-'} t{Object.keys(tree).length} n{laid.nodes.length}
-            </span>
+
             <div style={{ flex: 1 }} />
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
             <span style={{ minWidth: 42, textAlign: 'center', color: 'var(--q-text)', fontSize: 12, fontFamily: 'var(--font-interface)' }}>{pct}%</span>
@@ -470,7 +478,8 @@ export function AgentGraphSheet(props: Props) {
           title={`Add sub agents to ${byId[subFor]?.name || subFor}`}
           onClose={() => setSubFor(null)}
           onAdd={async (ids: string[]) => {
-            const cur: string[] = (delegateTree[subFor] || [])
+            const cur: string[] = (tree[subFor] || [])
+            dlog('add-click', { parent: subFor, ids, treeBefore: tree, chatBefore: chatIds })
             try {
               await saveTree({ ...tree, [subFor]: [...new Set([...cur, ...ids])] })
               // È un agente DELLA CHAT: entra anche nella lista agenti della sessione
@@ -484,6 +493,7 @@ export function AgentGraphSheet(props: Props) {
                 setLocalOrch(subFor)
               }
               await Promise.all([reloadAgents(), reloadOrch()])   // ridisegna subito
+              dlog('add-done', { parent: subFor, ids, tree, chatIds, orch: orchId })
               setSubFor(null)
             } catch {}
           }}

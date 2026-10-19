@@ -522,6 +522,15 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
     return { sessionKey: p.sessionKey, agentIds: p.agentIds ?? '' };
   },
   // === ORCHESTRATOR COME RUOLO (10 ott): designa/togli l'orchestrator della chat ===
+  /** Log dal CLIENT (diagnostica UI del grafo agenti) → ~/.quinki/agent-graph-debug.log */
+  clientLog: async (p) => {
+    try {
+      const line = JSON.stringify({ ts: Date.now(), src: "ui", tag: String(p.tag || ""), data: p.data ?? null }) + "\n";
+      const f = path.join(process.env.HOME || "", ".quinki", "agent-graph-debug.log");
+      fs.appendFileSync(f, line);
+      return { ok: true };
+    } catch (e: any) { return { ok: false, error: e?.message }; }
+  },
   setSessionDelegateTree: async (p) => quinkiBridge!.setSessionDelegateTree(String(p.sessionKey||''), p.tree || {}),
   setSessionOrchestrator: async (p) => {
     const key = String(p?.sessionKey || '');
