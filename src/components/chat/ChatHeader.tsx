@@ -504,11 +504,19 @@ export function ChatHeader(props: ChatHeaderProps) {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  if (confirmDelete === 'selected') { const fn = (window as any).__quinkiRemoveNode; selectedForRemoval.forEach(id => fn ? fn(id) : props.onAgentToggle(id)); setSelectedForRemoval(new Set()); setMultiSelect(false) }
-                  else { const fn = (window as any).__quinkiRemoveNode; fn ? fn(confirmDelete) : props.onAgentToggle(confirmDelete) }
-                  setConfirmDelete(null)
-                }}
+                  onClick={async () => {
+                    const fn = (window as any).__quinkiRemoveNode
+                    if (confirmDelete === 'selected') {
+                      // IN SEQUENZA: ogni rimozione attende la precedente (prima si sovrascrivevano)
+                      for (const id of Array.from(selectedForRemoval)) {
+                        try { await (fn ? fn(id) : props.onAgentToggle(id)) } catch {}
+                      }
+                      setSelectedForRemoval(new Set()); setMultiSelect(false)
+                    } else {
+                      try { await (fn ? fn(confirmDelete) : props.onAgentToggle(confirmDelete)) } catch {}
+                    }
+                    setConfirmDelete(null)
+                  }}
                 onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-tab-accent)'; e.currentTarget.style.color = 'var(--q-bg)' }}
                 onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-tab-accent)' }}
                 style={{ padding: '7px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-tab-accent)', backgroundColor: 'transparent', color: 'var(--q-tab-accent)', fontSize: '13px', fontFamily: 'var(--font-interface)', fontWeight: 600, cursor: 'pointer' }}
