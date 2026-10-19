@@ -643,6 +643,12 @@ export function ChatHeader(props: ChatHeaderProps) {
                 onRemoveFromChat={(id) => setConfirmDelete(id)}
                 onToggleChatAgent={(id) => props.onAgentToggle(id)}
                 refreshSignal={graphRefresh}
+                modelLabel={(id: string) => {
+                  if (!id) return ''
+                  const all = (props.providers || []).flatMap((p: any) => (p.models || []).map((m: any) => ({ id: m.id, name: m.name })))
+                  return (all.find((m: any) => m.id === id)?.name) || id
+                }}
+                thinkingLabel={(lv: string) => !lv ? '' : (lv === 'xhigh' ? 'XHigh' : lv.charAt(0).toUpperCase() + lv.slice(1))}
                 onRemoveSubAgents={(ids) => (props as any).onRemoveNodes?.(ids)}
                 sessionKey={String((props as any).session?.id || '')}
                 delegateTree={((props as any).session?.delegateTree || {})}

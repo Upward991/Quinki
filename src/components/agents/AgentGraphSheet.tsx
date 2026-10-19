@@ -39,6 +39,8 @@ type Props = {
   onTogglePick: (id: string) => void
   delegateTree: Record<string, string[]>
   refreshSignal?: number
+  modelLabel?: (id: string) => string
+  thinkingLabel?: (lv: string) => string
   onRequestRemoveSelected: () => void
   onCancelSelect: () => void
 }
@@ -69,7 +71,7 @@ export function AgentGraphSheet(props: Props) {
     }
     return null
   }
-  const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked, delegateTree = {} } = props
+  const { agents = [], chatAgentIds = [], orchestratorId, agentOverrides = {}, selectMode, picked, delegateTree = {}, modelLabel, thinkingLabel } = props
 
   // Copia locale: dopo un salvataggio rileggo gli agenti e ridisegno SUBITO,
   // senza aspettare il refresh globale dell'app.
@@ -145,6 +147,8 @@ export function AgentGraphSheet(props: Props) {
   // altezza reale della card in base a cosa contiene
   const cardH = (n: TNode) => n.isOrch ? ROOT_H : (soloUno ? H_DUE : (orchId ? H_TRE : H_DUE))
 
+  // VISTA: sempre l'albero riletto dal motore (localTree), mai la prop stantia.
+  const tView: Record<string, string[]> = Object.keys(tree).length ? tree : (delegateTree || EMPTY_TREE)
   const laid = useMemo(() => {
     const nodes: TNode[] = []
     const placed = new Set<string>() // un agente = un solo nodo nell'albero
@@ -157,8 +161,8 @@ export function AgentGraphSheet(props: Props) {
       let kidsIds: string[] = []
       // ALBERO = UNICA VERITÀ: la radice ha SOLO i figli dichiarati (non tutti gli agenti).
       // Fallback solo per dati vecchi senza legami.
-      const declared = (delegateTree[id] || []).filter(Boolean)
-      kidsIds = declared.length ? declared : (depth === 0 && markOrch && chatIds.length > 1 ? chatIds.filter(x => x !== id) : [])
+      const declared = (tView[id] || []).filter(Boolean)
+      kidsIds = declared
       const kids: TNode[] = []
       for (const k of kidsIds) {
         if (k === id || chain.has(k) || !byId[k] || kids.some(x => x.id === k)) continue
@@ -210,7 +214,7 @@ export function AgentGraphSheet(props: Props) {
     for (const n of nodes) n.x -= minX
     const maxY = Math.max(...nodes.map(n => n.y + cardH(n)))
     return { nodes, width, height: maxY }
-  }, [orchId, byId, chatIds, soloUno])
+  }, [orchId, byId, chatIds, soloUno, tView])
 
   // Log del render: cosa la UI ha DAVVERO in mano (solo quando cambia)
   useEffect(() => { reloadAgents(); reloadOrch() }, [props.refreshSignal])
@@ -355,7 +359,7 @@ export function AgentGraphSheet(props: Props) {
             {laid.nodes.map(n => {
               const isPicked = picked.has(n.id)
               const ov = agentOverrides?.[n.id] || {}
-              const thinking = ov.thinkingLevel === 'off' ? 'off' : ov.thinkingLevel ? ov.thinkingLevel : 'Chat default'
+              const thinking = ov.thinkingLevel ? (thinkingLabel ? thinkingLabel(ov.thinkingLevel) : ov.thinkingLevel) : 'Chat default'
               const bloccato = selectMode ? 'none' : 'auto'
               return (
                 <div key={n.id} data-node-card
@@ -397,7 +401,7 @@ export function AgentGraphSheet(props: Props) {
                     <>
                       <div style={{ display: 'flex', marginTop: 7, pointerEvents: bloccato }}>
                         <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickModel(n.id) }} icon={<Cpu size={11} />}>
-                          {String(ov.model || n.agent.model || 'Chat default').split('/').pop()}
+                          {ov.model ? (modelLabel ? modelLabel(ov.model) : ov.model) : 'Chat default'}
                         </Chip>
                       </div>
                       <div style={{ display: 'flex', marginTop: 4, pointerEvents: bloccato }}>
@@ -426,7 +430,7 @@ export function AgentGraphSheet(props: Props) {
       {subFor && (
         <AgentPickerModal
           agents={agents}
-          initialSelected={[...new Set([...chatIds, ...laid.nodes.map(n => n.id), ...(delegateTree[subFor] || [])])]}
+          initialSelected={[...new Set([...chatIds, ...laid.nodes.map(n => n.id), ...(tView[subFor] || [])])]}
           title={`Add sub agents to ${byId[subFor]?.name || subFor}`}
           onClose={() => setSubFor(null)}
           onAdd={async (ids: string[]) => {
