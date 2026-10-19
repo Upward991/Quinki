@@ -364,16 +364,22 @@ export function AgentGraphSheet(props: Props) {
   }
 
   return (
-    <div style={{ position: 'fixed', top: 25, left: 0, right: 0, bottom: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
+    <div style={{ position: 'fixed', top: mob ? 0 : 25, left: 0, right: 0, bottom: 0, zIndex: 300, backgroundColor: 'var(--q-bg)', display: 'flex', flexDirection: 'column', padding: 8, boxSizing: 'border-box' }}>
       {/* heading — pannelli flottanti, larghezza standard */}
       <div style={{ flexShrink: 0, marginBottom: 8, paddingBottom: 6, width: '100%', maxWidth: 'var(--spacing-chat-max)', margin: '0 auto' }}>
         {mob ? (
-          <div style={{ ...panelStyle, width: '100%' }}>
-            <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={20} /></IconBtn>
-            <div style={{ width: 12, flexShrink: 0 }} />
-            <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Agents in chat</span>
-            <div style={{ flex: 1 }} />
-            <IconBtn title="Menu" onClick={() => setSheetOpen(true)}><Menu size={20} /></IconBtn>
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
+            <div style={panelStyle}>
+              <IconBtn title="Back to chat" onClick={props.onClose}><MessageSquare size={20} /></IconBtn>
+            </div>
+            <div style={{ ...panelStyle, flex: 1, minWidth: 0 }}>
+              <div style={{ width: 8, flexShrink: 0 }} />
+              <Bot size={18} style={{ color: 'var(--q-text-secondary)', flexShrink: 0 }} />
+              <div style={{ width: 12, flexShrink: 0 }} />
+              <span style={{ color: 'var(--q-text)', fontSize: 16, fontWeight: 600, fontFamily: 'var(--font-interface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Agents in chat</span>
+              <div style={{ flex: 1 }} />
+              <IconBtn title="Menu" onClick={() => setSheetOpen(true)}><Menu size={20} /></IconBtn>
+            </div>
           </div>
         ) : (
         <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 8 }}>
@@ -510,6 +516,7 @@ export function AgentGraphSheet(props: Props) {
 
       {/* MOBILE: tutte le opzioni della testata in un menu dal basso */}
       <BottomSheet
+        zIndex={1000}
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
         items={[

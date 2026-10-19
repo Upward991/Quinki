@@ -45,7 +45,7 @@ export function SheetRow({ icon, label, value, valueColor, onClick }: {
   )
 }
 
-export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, title, hideBack, hideNav }: {
+export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, title, hideBack, hideNav, zIndex = 100 }: {
   open: boolean
   onClose: () => void
   items: SheetItem[]
@@ -55,6 +55,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
   title?: string
   hideBack?: boolean
   hideNav?: boolean
+  zIndex?: number
 }) {
   // Telefono: l'evidenziato delle voci nasce dall'hover/tastiera (non esiste
   // sul telefono) -> mai mostrato. Desktop invariato.
@@ -77,7 +78,7 @@ export function BottomSheet({ open, onClose, items, view, onViewBack, onBack, ti
   // transform (es. le porte a swipe della chat mobile), altrimenti il foglio
   // finisce fuori dallo schermo a destra e a sinistra.
   return createPortal((
-    <div style={{ position: 'fixed', inset: 0, zIndex: 100 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex }}>
       <div onClick={(e) => { if (e.target === e.currentTarget) onClose() }} style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
       <div
         ref={panelRef as any}
