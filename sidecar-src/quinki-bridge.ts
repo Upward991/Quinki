@@ -382,6 +382,11 @@ function quinkiSetSystemPrompt(agent: any, text: string): void {
 //   • #readState / #notifications / #wss / #unsubs → canali verso le finestre.
 //   • #debugLog* → il log diagnostico (buffer in memoria + flush periodico su file).
 // =============================================================================
+/** true se `root` compare come figlio (una radice non ha padre). */
+function seenGuard(tree: Record<string, string[]>, root: string): boolean {
+  for (const pid of Object.keys(tree)) if (pid !== root && (tree[pid] || []).includes(root)) return true;
+  return false;
+}
 class QuinkiBridge {
   // screenshot: round-trip tool → frontend invoke → risposta (requestId correlato)
   #screenshotPending = new Map<string, (r: { path?: string; error?: string }) => void>();
@@ -1259,20 +1264,13 @@ class QuinkiBridge {
       return {
         key: s.key, label: s.label, agentId: s.agentId || "",
         orchestratorId: (s as any).orchestratorId || "",
-        // UNICA FONTE: chat-meta.json della sessione (agenti, orchestrator, albero)
+        // UNICA FONTE: l'ALBERO della chat (chat-meta.json). agentId/orchestratorId
+        // sono DERIVATI (nodi = albero, ruolo = radice): mai più valori che ballano.
         ...(() => {
           try {
-            const p = path.join(this.#quinkiSessionDir(s.key), "chat-meta.json");
-            const st = fs.statSync(p);
-            let m: any = null;
-            const c = this.#chatMetaCache.get(s.key);
-            if (c && c.mtime === st.mtimeMs) m = c.data;
-            else { m = JSON.parse(fs.readFileSync(p, "utf8")); this.#chatMetaCache.set(s.key, { mtime: st.mtimeMs, data: m }); }
-            const out: any = {};
-            if (typeof m?.agentIds === "string") out.agentId = m.agentIds;
-            if (m?.orchestratorId !== undefined) out.orchestratorId = m.orchestratorId || "";
-            if (m?.delegateTree && typeof m.delegateTree === "object") out.delegateTree = m.delegateTree;
-            return out;
+            const t = this.#chatTreeOf(s.key);
+            if (!t.members.length) return { agentId: "", orchestratorId: "", delegateTree: {} };
+            return { agentId: t.members.join(","), orchestratorId: t.root, delegateTree: t.tree };
           } catch { return {}; }
         })(),
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
@@ -4376,6 +4374,98 @@ Read this file to view it.` }] };
     } catch {}
   }
 
+  // ===== ALBERO DELLA CHAT (19 ott 2026) — UNICA VERITÀ =====
+  // La chat È un albero: la RADICE è l'orchestrator, i NODI sono gli agenti della chat.
+  // Tutto (agenti, ruolo, albero) si deriva da qui; chat-meta.json è l'unico file.
+  #readChatMetaFile(key: string): any {
+    try {
+      const p = path.join(this.#quinkiSessionDir(key), "chat-meta.json");
+      const st = fs.statSync(p);
+      const c = this.#chatMetaCache.get(key);
+      if (c && c.mtime === st.mtimeMs) return c.data;
+      const data = JSON.parse(fs.readFileSync(p, "utf8"));
+      this.#chatMetaCache.set(key, { mtime: st.mtimeMs, data });
+      return data;
+    } catch { return null; }
+  }
+
+  /** Albero normalizzato { tree, root, members }. Migra le chat vecchie (agentIds+orchestratorId). */
+  #chatTreeOf(key: string): { tree: Record<string, string[]>; root: string; members: string[] } {
+    const m = this.#readChatMetaFile(key) || {};
+    const s = this.#entries.get(key) as any;
+    const rawIds = String((m as any)?.agentIds ?? s?.agentId ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
+    const rawTree: Record<string, any> = ((m as any)?.delegateTree && typeof (m as any).delegateTree === "object")
+      ? (m as any).delegateTree : (((s as any)?.delegateTree) || {});
+    const declaredRoot = String((m as any)?.orchestratorId ?? (s as any)?.orchestratorId ?? "").trim();
+
+    const members: string[] = [];
+    const add = (id: any) => { const v = String(id || "").trim(); if (v && !members.includes(v)) members.push(v); };
+    rawIds.forEach(add);
+    for (const [pid, kids] of Object.entries(rawTree)) { add(pid); if (Array.isArray(kids)) kids.forEach(add); }
+    if (!members.length) return { tree: {}, root: "", members: [] };
+
+    const tree: Record<string, string[]> = {};
+    const seenParent = new Set<string>();
+    for (const [pid, kids] of Object.entries(rawTree)) {
+      if (!Array.isArray(kids)) continue;
+      const list: string[] = [];
+      for (const k of kids) {
+        const kid = String(k || "").trim();
+        if (!kid || kid === pid || seenParent.has(kid) || !members.includes(kid)) continue;
+        seenParent.add(kid); list.push(kid);
+      }
+      tree[pid] = list;
+    }
+    for (const id of members) if (!Array.isArray(tree[id])) tree[id] = [];
+
+    const roots = members.filter((id) => !seenParent.has(id));
+    let root = "";
+    if (declaredRoot && members.includes(declaredRoot) && !seenParent.has(declaredRoot)) root = declaredRoot;
+    else if (roots.length === 1) root = roots[0];
+    else if (declaredRoot && members.includes(declaredRoot)) root = declaredRoot;
+    else root = roots[0] || members[0];
+
+    const hasEdges = Object.values(tree).some((l) => l.length > 0);
+    if (!hasEdges) {
+      // MIGRAZIONE: nessun legame → tutti figli della radice
+      tree[root] = members.filter((id) => id !== root);
+      try { this.#writeChatMeta(key, { agentIds: members.join(","), orchestratorId: root, delegateTree: tree }); this.#chatMetaCache.delete(key); } catch {}
+    } else if (roots.length > 1) {
+      for (const r of roots) if (r !== root) {
+        tree[root] = [...new Set([...(tree[root] || []), r])];
+        seenParent.add(r);
+      }
+      try { this.#writeChatMeta(key, { agentIds: members.join(","), orchestratorId: root, delegateTree: tree }); this.#chatMetaCache.delete(key); } catch {}
+    }
+    if (seenParent.has(root)) {
+      for (const pid of Object.keys(tree)) tree[pid] = tree[pid].filter((x) => x !== root);
+    }
+    return { tree, root, members };
+  }
+
+  /** Scrive albero + campi derivati (agentIds/orchestratorId) in un colpo solo. */
+  #saveChatTree(key: string, treeIn: Record<string, string[]>, rootOverride?: string) {
+    const m = this.#readChatMetaFile(key) || {};
+    const s = this.#entries.get(key) as any;
+    const members: string[] = [];
+    const add = (id: any) => { const v = String(id || "").trim(); if (v && !members.includes(v)) members.push(v); };
+    String((m as any)?.agentIds ?? s?.agentId ?? "").split(",").forEach(add);
+    for (const [pid, kids] of Object.entries(treeIn || {})) { add(pid); (kids || []).forEach(add); }
+    const kidsAll = new Set(Object.values(treeIn || {}).flat() as string[]);
+    const root = rootOverride && members.includes(rootOverride) ? rootOverride : (members.find((id) => !kidsAll.has(id)) || members[0] || "");
+    const ordered = [root, ...members.filter((x) => x && x !== root)].filter(Boolean);
+    const clean: Record<string, string[]> = {};
+    for (const id of ordered) clean[id] = (treeIn[id] || []).filter((x) => x && x !== id && ordered.includes(x));
+    if (seenGuard(clean, root)) {
+      for (const pid of Object.keys(clean)) clean[pid] = clean[pid].filter((x) => x !== root);
+    }
+    if (s) { (s as any).agentId = ordered.join(","); (s as any).orchestratorId = root || undefined; (s as any).delegateTree = clean; }
+    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: root, delegateTree: clean });
+    try { this.#chatMetaCache.delete(key); } catch {}
+    try { const send = (globalThis as any).__quinki_sendNotification; if (send) send("session_updated", { sessionKey: key, agentId: ordered.join(","), orchestratorId: root, label: s?.label }); } catch {}
+    return { tree: clean, root, members: ordered };
+  }
+
   #writeChatMeta(key: string, patch: Record<string, any>) {
     try {
       const dir = this.#quinkiSessionDir(key);
@@ -4546,46 +4636,33 @@ Read this file to view it.` }] };
   }
 
   setChatAgents(key: string, agentIds: string) {
-    const s = this.#entries.get(key);
-    // Se l'entry non esiste in memoria la salviamo comunque nel meta file (e #load la riporterà)
-    if (s) {
-      (s as any).agentId = agentIds || '';
-      // orchestrator rimosso dalla chat? il ruolo si perde (-> si deve riassegnare, spec 10 ott)
-      try {
-        const _ids = String(agentIds || '').split(',').map((x) => x.trim()).filter(Boolean);
-        const _orch = (s as any).orchestratorId ? String((s as any).orchestratorId) : '';
-        // Il ruolo si perde se il designato esce dalla chat; se resta UN SOLO agente
-        // si perde SOLO se quell'agente non ha sub-agent (con una squadra il ruolo serve).
-        let _singleNoKids = false;
-        if (_ids.length === 1) {
-          try {
-            // I sub-agent ora vivono nell'ALBERO DELLA CHAT
-            const _kids = ((s as any)?.delegateTree?.[_ids[0]]) || [];
-            _singleNoKids = _kids.length === 0;
-          } catch { _singleNoKids = true; }
-        }
-        if (_orch && (!_ids.includes(_orch) || _singleNoKids)) (s as any).orchestratorId = undefined;
-      } catch {}
-      this.#save();
-      // === POOL SYNC: la composizione agenti della chat cambia sul worker —
-      // il main deve aggiornare la sua entry (altrimenti refreshSessionsForAgent
-      // e la UI lavorano su una lista agenti stantia) ===
-      try {
-        const send = (globalThis as any).__quinki_sendNotification;
-        if (send) send("session_updated", { sessionKey: key, agentId: agentIds || '', orchestratorId: (s as any).orchestratorId || '', label: s.label });
-      } catch {}
+    // === ALBERO: aggiungere = figlio della radice; rimuovere = il nodo esce e i
+    // suoi figli salgono al padre. La lista `agentIds` è solo l'elenco dei nodi. ===
+    const before = this.#chatTreeOf(key);
+    const want = String(agentIds || "").split(",").map((x) => x.trim()).filter(Boolean);
+    const tree: Record<string, string[]> = {};
+    for (const [pid, kids] of Object.entries(before.tree)) tree[pid] = [...kids];
+    let root = before.root;
+    if (!root && want.length) { root = want[0]; tree[root] = tree[root] || []; }
+    // aggiunte → figlie della radice
+    for (const id of want) {
+      if (id === root) continue;
+      if (!before.members.includes(id) && !Object.keys(tree).includes(id)) {
+        tree[root] = [...new Set([...(tree[root] || []), id])];
+      }
     }
-    this.#writeChatMeta(key, { agentIds: agentIds || '', orchestratorId: ((this.#entries.get(key) as any)?.orchestratorId) || '' });
-    // === USER INTENT (anti-loss): agents.json per-sessione, scritto SOLO dal main.
-    // Un sidecar stantio (Expert vecchio) non conosce questo file → non può sovrascriverlo. ===
-    try {
-      const dir = this.#quinkiSessionDir(key);
-      fs.mkdirSync(dir, { recursive: true });
-      // (agents.json non si scrive più: unica fonte = chat-meta.json)
-    } catch {}
-    this.logDebug("set-chat-agents", { sessionKey: key, agentIds, saved: true });
-    // === EVENT-DRIVEN: la lista agenti della chat è cambiata → i tool cambiano con
-    // essa. Refresh SICURO della sessione (se libera ora, a fine turno se gira).
+    // rimozioni → fuori il nodo, i figli salgono al padre
+    for (const id of before.members.filter((x) => !want.includes(x))) {
+      const parent = Object.keys(tree).find((p2) => (tree[p2] || []).includes(id)) || "";
+      const kids = tree[id] || [];
+      delete tree[id];
+      for (const p2 of Object.keys(tree)) tree[p2] = tree[p2].filter((x) => x !== id);
+      if (root === id) root = kids[0] || want[0] || "";
+      if (parent && tree[parent]) tree[parent] = [...new Set([...tree[parent], ...kids])];
+      else if (root) tree[root] = [...new Set([...(tree[root] || []), ...kids])];
+    }
+    this.#saveChatTree(key, tree, root);
+    this.logDebug("set-chat-agents", { sessionKey: key, agentIds, members: want.length });
     if (this.#active.has(key)) this.#safeRecreateSession(key, "chat-agents-changed");
   }
 
@@ -4596,77 +4673,47 @@ Read this file to view it.` }] };
   /** Albero di delega della CHAT: { agenteId: [subAgentIds] }. Vive nella sessione:
    *  ogni chat ha il suo (non è una proprietà globale dell'agente). */
   setSessionDelegateTree(key: string, tree: Record<string, string[]>) {
-    const s = this.#entries.get(key);
-    const clean: Record<string, string[]> = {};
-    for (const [k, v] of Object.entries(tree || {})) {
-      const ids = (Array.isArray(v) ? v : []).map(String).filter((x) => x && x !== k);
-      if (ids.length) clean[k] = [...new Set(ids)];
-    }
-    if (s) { (s as any).delegateTree = clean; this.#save(); }
-    this.#writeChatMeta(key, { delegateTree: clean });
-    try {
-      const dir = this.#quinkiSessionDir(key);
-      fs.mkdirSync(dir, { recursive: true });
-      // (agents.json non si scrive più: unica fonte = chat-meta.json)
-    } catch {}
-    this.logDebug("set-delegate-tree", { sessionKey: key, nodes: Object.keys(clean).length });
-    return { ok: true, delegateTree: clean };
+    const saved = this.#saveChatTree(key, tree || {});
+    this.logDebug("set-delegate-tree", { sessionKey: key, nodes: Object.keys(saved.tree).length, root: saved.root });
+    return { ok: true, delegateTree: saved.tree, orchestratorId: saved.root, agentIds: saved.members.join(",") };
   }
 
 
   /** SCRITTURA ATOMICA dello stato della chat: agenti + orchestrator + albero in UN colpo.
    *  Evita che scritture separate si sovrascrivano (bug 19 ott: il ruolo spariva). */
   setSessionChatState(key: string, st: { agentIds?: string; orchestratorId?: string | null; delegateTree?: Record<string, string[]> }) {
-    const s = this.#entries.get(key);
-    const agentIds = typeof st.agentIds === "string" ? st.agentIds : ((s as any)?.agentId || "");
-    const orch = st.orchestratorId === undefined ? ((s as any)?.orchestratorId || "") : (st.orchestratorId || "");
-    const tree = st.delegateTree === undefined ? (((s as any)?.delegateTree) || {}) : (st.delegateTree || {});
-    const clean: Record<string, string[]> = {};
-    for (const [k, v] of Object.entries(tree)) {
-      const ids = (Array.isArray(v) ? v : []).map(String).filter((x) => x && x !== k);
-      if (ids.length) clean[k] = [...new Set(ids)];
+    // Unico stato della chat = ALBERO. Se arriva l'albero, quello vince; altrimenti
+    // si applica la lista agenti (aggiunta = figlio della radice) — poi si deriva tutto.
+    if (st.delegateTree && typeof st.delegateTree === "object") {
+      const saved = this.#saveChatTree(key, st.delegateTree, st.orchestratorId || undefined);
+      this.logDebug("set-chat-state", { sessionKey: key, mode: "tree", root: saved.root, members: saved.members.length });
+      return { ok: true, agentIds: saved.members.join(","), orchestratorId: saved.root, delegateTree: saved.tree };
     }
-    if (s) {
-      (s as any).agentId = agentIds;
-      (s as any).orchestratorId = orch || undefined;
-      (s as any).delegateTree = clean;
-      this.#save();
+    if (typeof st.agentIds === "string") {
+      this.setChatAgents(key, st.agentIds);
+      const t = this.#chatTreeOf(key);
+      return { ok: true, agentIds: t.members.join(","), orchestratorId: t.root, delegateTree: t.tree };
     }
-    this.#writeChatMeta(key, { agentIds, orchestratorId: orch, delegateTree: clean });
-    this.logDebug("set-chat-state", { sessionKey: key, agentIds, orch, nodes: Object.keys(clean).length });
-    return { ok: true, agentIds, orchestratorId: orch, delegateTree: clean };
+    const t = this.#chatTreeOf(key);
+    return { ok: true, agentIds: t.members.join(","), orchestratorId: t.root, delegateTree: t.tree };
   }
 
 
   setSessionOrchestrator(key: string, agentId: string | null) {
-    const s = this.#entries.get(key);
-    const ids = String((s as any)?.agentId || "").split(",").map((x) => x.trim()).filter(Boolean);
-    const target = agentId && ids.includes(agentId) ? agentId : null;
-    let nextIds = ids;
-    if (target) nextIds = [target, ...ids.filter((id) => id !== target)];
-    const nextAgentId = nextIds.join(",");
-    if (s) {
-      (s as any).orchestratorId = target || undefined;
-      if (target && nextAgentId !== (s as any).agentId) (s as any).agentId = nextAgentId;
-      if (target && (s as any).agentOverrides?.[target]) {
-        delete (s as any).agentOverrides[target];
-        if (Object.keys((s as any).agentOverrides).length === 0) delete (s as any).agentOverrides;
-      }
-      this.#save();
-      try {
-        const send = (globalThis as any).__quinki_sendNotification;
-        if (send) send("session_updated", { sessionKey: key, agentId: (s as any).agentId || "", orchestratorId: target || "", label: s.label });
-      } catch {}
-    }
-    this.#writeChatMeta(key, { agentIds: nextAgentId, orchestratorId: target || "" });
-    try {
-      const dir = this.#quinkiSessionDir(key);
-      fs.mkdirSync(dir, { recursive: true });
-      // (agents.json non si scrive più: unica fonte = chat-meta.json)
-    } catch {}
-    this.logDebug("set-session-orchestrator", { sessionKey: key, orchestratorId: target || null, agentIds: nextAgentId });
-    if (this.#active.has(key)) this.#safeRecreateSession(key, "orchestrator-changed");
-    return { ok: true, orchestratorId: target || null, agentIds: nextAgentId };
+    // RADICE = ruolo. Assegnare X: X diventa radice (staccato dal suo padre) e il
+    // VECCHIO orchestrator scende come SUO figlio. agentId=null → nessun cambio.
+    const t = this.#chatTreeOf(key);
+    if (!t.members.length) return { ok: false, orchestratorId: null, agentIds: "" };
+    const target = agentId && t.members.includes(agentId) ? agentId : null;
+    if (!target) return { ok: true, orchestratorId: t.root || null, agentIds: t.members.join(",") };
+    if (target === t.root) return { ok: true, orchestratorId: target, agentIds: t.members.join(",") };
+    const tree: Record<string, string[]> = {};
+    for (const [pid, kids] of Object.entries(t.tree)) tree[pid] = kids.filter((x) => x !== target);
+    const oldRoot = t.root;
+    tree[target] = [...new Set([...(tree[target] || []), ...(oldRoot && oldRoot !== target ? [oldRoot] : [])])];
+    const saved = this.#saveChatTree(key, tree, target);
+    this.logDebug("set-session-orchestrator", { sessionKey: key, root: saved.root, oldRoot });
+    return { ok: true, orchestratorId: saved.root, agentIds: saved.members.join(",") };
   }
 
   // === Per-chat agent overrides (model + thinking per agent, scoped to this session) ===
@@ -5244,7 +5291,7 @@ Read this file to view it.` }] };
         // delegate_to_agent, schedule_task, task tools, screenshot, market ===
         const has = (name: string) => keep.some((t: any) => t?.name === name);
         const wants = (name: string) => Array.isArray(cfg?.tools) && cfg.tools.includes(name);
-        if ((wants('delegate_to_agent') || this.#isSessionOrchestrator(sk, agentId)) && !has('delegate_to_agent')) {
+        if ((wants('delegate_to_agent') || this.#hasChildren(sk, agentId)) && !has('delegate_to_agent')) {
           try { const t = this.#buildDelegateTool(sk); if (t) keep.push(t); } catch {}
         }
         if (wants('bash_readonly') && !has('bash_readonly')) {
@@ -5273,7 +5320,7 @@ Read this file to view it.` }] };
           const alwaysKeep = ['skill', 'market'].includes(n);
           if (alwaysKeep) return true;
           // orchestrator di RUOLO: il delegate resta anche se non e' nel config dell'agente
-          if (n === 'delegate_to_agent' && this.#isSessionOrchestrator(sk, agentId)) return true;
+          if (n === 'delegate_to_agent' && this.#hasChildren(sk, agentId)) return true;
           return cfgToolsNow.includes(n);
         });
         (pi as any)._customTools = [...filtered, ...mcpTools];
@@ -5997,35 +6044,55 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   // 'orchestrator' (sessioni esistenti) -> primo della lista.
   #resolvePrimaryAgent(key: string): string | null {
     try {
-      const raw = this.#resolveAgentId(key);
-      if (!raw) return null;
-      const ids = String(raw).split(",").map((x) => x.trim()).filter(Boolean);
-      if (ids.length === 0) return null;
-      const s = this.#entries.get(key) as any;
-      const orch = s?.orchestratorId ? String(s.orchestratorId) : "";
-      if (orch && ids.includes(orch)) return orch;
-      if (ids.includes("orchestrator")) return "orchestrator";
-      return ids[0] || null;
+      const t = this.#chatTreeOf(key);
+      return t.root || null;
     } catch { return null; }
   }
 
   // True se agentIdOrList E' l'orchestrator della chat (solo per chat con 2+ agenti).
+  /** Lista dei FIGLI dell'agente nell'albero della chat = a chi può delegare. */
+  #childrenPromptNote(key: string, agentId: string): string {
+    try {
+      if (!key || !agentId) return "";
+      const t = this.#chatTreeOf(key);
+      const kids = (t.tree[agentId] || []).filter(Boolean);
+      if (!kids.length) return "";
+      let out = `\n\n**Your agents in this chat (use delegate_to_agent to call them, or @name to tag them):**\n`;
+      for (const id of kids) {
+        let name = id, desc = "";
+        try {
+          const cfg = this.#readAgentConfig(id);
+          if (cfg?.name) name = cfg.name;
+          const skills = (cfg?.skills || []).join(", ");
+          const tools = (cfg?.tools || []).join(", ");
+          desc = ` — ${cfg?.description || "Agent"}${skills ? ` (skill: ${skills})` : ""}${tools ? ` (tool: ${tools})` : ""}`;
+        } catch {}
+        out += `- @${name}${desc}\n`;
+      }
+      out += `\nWhen the user makes a request, delegate to the most suitable agent. If the request is simple, answer directly.`;
+      return out;
+    } catch { return ""; }
+  }
+
+  /** True se l'agente ha figli nell'albero della chat (= può delegare). */
+  #hasChildren(key: string | null | undefined, id: string | null | undefined): boolean {
+    try {
+      if (!key || !id) return false;
+      const t = this.#chatTreeOf(key);
+      return (t.tree[String(id)] || []).length > 0;
+    } catch { return false; }
+  }
+
   #isSessionOrchestrator(key: string | null | undefined, agentIdOrList: string | null | undefined): boolean {
     try {
       if (!key || !agentIdOrList) return false;
-      const s = this.#entries.get(key) as any;
-      const ids = String(s?.agentId || "").split(",").map((x: string) => x.trim()).filter(Boolean);
-      if (ids.length < 2) return false;
-      const primary = this.#resolvePrimaryAgent(key);
-      if (!primary) return false;
+      const t = this.#chatTreeOf(key);
+      if (!t.root) return false;
+      // il ruolo conta con 2+ agenti, o se la radice ha figli
+      if (t.members.length < 2 && (t.tree[t.root] || []).length === 0) return false;
       const raw = String(agentIdOrList);
-      if (raw.includes(",")) {
-        const rids = raw.split(",").map((x) => x.trim()).filter(Boolean);
-        const cand = (s?.orchestratorId && rids.includes(String(s.orchestratorId))) ? String(s.orchestratorId)
-          : (rids.includes("orchestrator") ? "orchestrator" : (rids[0] || ""));
-        return cand === primary;
-      }
-      return raw === primary;
+      if (raw.includes(",")) return raw.split(",").map((x) => x.trim()).includes(t.root);
+      return raw === t.root;
     } catch { return false; }
   }
 
@@ -6355,15 +6422,11 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             // Anti-ciclo: chi mi ha chiamato non lo richiamo. La profondità NON ha limiti.
             const chain = Array.isArray(opts?.chain) ? opts!.chain! : [];
             const chatRoster = String(sessionAgents).split(',').filter((id: string) => id && id !== selfId);
-            // STRUTTURA DELLA CHAT: ognuno delega SOLO ai suoi figli nell'albero.
-            // Se non ha figli: l'orchestrator usa gli agenti della chat (comportamento originale),
-            // gli altri non hanno nessuno da chiamare.
-            const _tree: Record<string, string[]> = ((self.#entries.get(sessionKey) as any)?.delegateTree) || {};
-            const _mine = Array.isArray(_tree[selfId]) ? _tree[selfId].filter(Boolean) : [];
-            const agentIds = (_mine.length
-              ? _mine
-              : (self.#isSessionOrchestrator(sessionKey, selfId) ? chatRoster : [])
-            ).filter((id: string) => id && id !== selfId);
+            // STRUTTURA DELLA CHAT: ognuno delega SOLO ai SUOI FIGLI nell'albero.
+            const _t = self.#chatTreeOf(sessionKey);
+            const _mine = (_t.tree[selfId] || []).filter(Boolean);
+            const agentIds = (_mine.length ? _mine : (selfId === _t.root ? _t.members : []))
+              .filter((id: string) => id && id !== selfId);
           // Trova l'agente per nome (case-insensitive)
           let targetId: string | null = null;
           for (const id of agentIds) {
@@ -6428,8 +6491,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
               .filter((id: string) => id && id !== targetId && !chain.includes(id) && id !== selfId);
             let tempDelegateTool: any = null;
             {
-              const _t2: Record<string, string[]> = ((self.#entries.get(sessionKey) as any)?.delegateTree) || {};
-              const _kids = Array.isArray(_t2[targetId]) ? _t2[targetId].filter(Boolean) : [];
+              const _t2 = self.#chatTreeOf(sessionKey);
+              const _kids = (_t2.tree[targetId] || []).filter(Boolean);
               if (_kids.length > 0) {
                 tempDelegateTool = self.#buildDelegateTool(sessionKey, { selfAgentId: targetId, parentDelegationId: delegationId });
                 self.logDebug("delegate-subtool-built", { sessionKey, agentId: targetId, kids: _kids });
@@ -6799,40 +6862,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       const skillPaths = this.#resolveSkillPaths(agentConfig, cwd);
       // Build full system prompt (includes agent list for Orchestrator)
       let systemPrompt = this.#readAgentPrompt(agentId, cwd);
-      // === Orchestrator: add agent list to system prompt ===
-      if (sessionKey && this.#isSessionOrchestrator(sessionKey, agentId)) {
-        const sessionEntry = this.#entries.get(sessionKey);
-        const sessionAgents = (sessionEntry as any)?.agentId;
-        if (sessionAgents && sessionAgents !== agentId) {
-          const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== agentId);
-          const agentNames: string[] = [];
-          for (const id of agentIds) {
-            try {
-              const agentCfg = this.#readAgentConfig(id);
-              if (agentCfg?.name) agentNames.push(agentCfg.name);
-              else agentNames.push(id);
-            } catch { agentNames.push(id); }
-          }
-          if (agentNames.length > 0) {
-            systemPrompt += `\n\n**Agents available in this chat (use @name to tag them):**\n`;
-            for (const name of agentNames) {
-              systemPrompt += `- @${name}\n`;
-            }
-            systemPrompt += `\nWhen the user makes a request, analyze it and delegate to the most suitable agent. If the request is simple, answer directly.\n`;
-            systemPrompt += `\n**Agent descriptions:**\n`;
-            for (const id of agentIds) {
-              try {
-                const cfg = this.#readAgentConfig(id);
-                if (cfg?.name) {
-                  const skills = (cfg.skills || []).join(', ');
-                  const tools = (cfg.tools || []).join(', ');
-                  systemPrompt += `- **${cfg.name}**: ${cfg.description || 'Agente'}${skills ? ` (skill: ${skills})` : ''}${tools ? ` (tool: ${tools})` : ''}\n`;
-                }
-              } catch {}
-            }
-          }
-        }
-      }
+      // === Albero: lista dei MIEI agenti (figli) ===
+      if (sessionKey && agentId) systemPrompt += this.#childrenPromptNote(sessionKey, agentId);
       return new this.#sdk.DefaultResourceLoader({
         cwd,
         agentDir: this.#agentDir,
@@ -6910,23 +6941,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       const hasDelegate = !!(agentId && (this.#isSessionOrchestrator(key, agentId) || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
       prompt += this.#modeNote(m, hasDelegate);
     }
-    // === Orchestrator: lista agenti della chat (COMPORTAMENTO ORIGINALE) ===
-    if (agentId && this.#isSessionOrchestrator(key, agentId)) {
-      const sessionEntry = this.#entries.get(key);
-      const sessionAgents = (sessionEntry as any)?.agentId;
-      if (sessionAgents && sessionAgents !== agentId) {
-        const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== agentId);
-        const agentNames: string[] = [];
-        for (const id of agentIds) {
-          try { const cfg = this.#readAgentConfig(id); agentNames.push(cfg?.name || id); } catch { agentNames.push(id); }
-        }
-        if (agentNames.length > 0) {
-          prompt += `\n\n**Agents available in this chat (use @name to tag them):**\n`;
-          for (const name of agentNames) prompt += `- @${name}\n`;
-          prompt += `\nWhen the user makes a request, analyze it and delegate to the most suitable agent. If the request is simple, answer directly.`;
-        }
-      }
-    }
+    // === Albero: lista dei MIEI agenti (figli) ===
+    if (agentId) prompt += this.#childrenPromptNote(key, agentId);
     // === Skill: short instruction instead of <available_skills> ===
     const pi = this.#active.get(key);
     if (pi?.resourceLoader) {
