@@ -65,7 +65,6 @@ export function AgentGraphSheet(props: Props) {
   const [subFor, setSubFor] = useState<string | null>(null)
   const [changeFor, setChangeFor] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
-  const [subMenu, setSubMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2200); return () => clearTimeout(t) }, [toast])
 
   // altezza reale della card in base a cosa contiene
@@ -257,8 +256,8 @@ export function AgentGraphSheet(props: Props) {
                   onClick={() => { if (selectMode) props.onTogglePick(n.id); else props.onOpenAgent(n.id) }}
                   onContextMenu={(e) => {
                     e.preventDefault(); e.stopPropagation()
+                    // Menu ORIGINALE, intoccato. Vale per gli agenti della chat.
                     if (chatAgentIds.includes(n.id)) props.onContextMenu(n.id, e.clientX, e.clientY)
-                    else setSubMenu({ id: n.id, x: e.clientX, y: e.clientY })
                   }}
                   style={{
                     position: 'absolute', left: n.x + NODE_W / 2, top: n.y, transform: 'translateX(-50%)',
@@ -355,29 +354,6 @@ export function AgentGraphSheet(props: Props) {
           }}
         />
       )}
-
-      {subMenu && (() => {
-        // chi è il padre di questo sub-agent?
-        const parentId = Object.keys(byId).find(pid => Array.isArray(byId[pid]?.delegates) && byId[pid].delegates.includes(subMenu.id))
-        return (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 600 }} onClick={() => setSubMenu(null)} onContextMenu={(e) => { e.preventDefault(); setSubMenu(null) }} />
-            <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 220), top: Math.min(subMenu.y, window.innerHeight - 120), zIndex: 601, minWidth: 200, backgroundColor: 'var(--q-bg-panel)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-md)', padding: 5, boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
-              <div onClick={async () => {
-                if (!parentId) { setSubMenu(null); return }
-                const cur: string[] = Array.isArray(byId[parentId]?.delegates) ? byId[parentId].delegates : []
-                try { await rpc('updateAgent', { id: parentId, config: { delegates: cur.filter(x => x !== subMenu.id) } }); props.onRefreshAgents?.(); setToast('Sub agent removed') } catch (e: any) { alert('Remove failed: ' + (e?.message || String(e))) }
-                setSubMenu(null)
-              }}
-                onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--q-hover)')}
-                onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                style={{ padding: '7px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontFamily: 'var(--font-interface)', color: 'var(--q-text)', cursor: 'pointer' }}>
-                Remove from {byId[parentId || '']?.name || 'parent'}
-              </div>
-            </div>
-          </>
-        )
-      })()}
 
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 950, backgroundColor: 'var(--q-bg-elevated)', border: '1px solid var(--q-border)', borderRadius: 'var(--radius-lg)', padding: '10px 16px', color: 'var(--q-text)', fontSize: 12.5, fontFamily: 'var(--font-interface)', boxShadow: '0 10px 30px rgba(0,0,0,.25)' }}>
