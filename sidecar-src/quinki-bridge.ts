@@ -6839,7 +6839,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       const cfgAny: any = this.#readAgentConfigFile(agentId);
       const hasDelegateTool = !!(isOrch || cfgAny?.tools?.includes("delegate_to_agent") || (Array.isArray(cfgAny?.delegates) && cfgAny.delegates.length));
       if (hasDelegateTool) {
-        prompt += this.#delegationTreeNote(agentId, chatAgents, isOrch);
+          prompt += this.#delegationTreeNote(agentId, chatAgents, isOrch);
+        (this as any).__lastTree = this.#delegationTreeNote(agentId, chatAgents, isOrch);
         this.logDebug("delegation-tree-injected", { sessionKey: key, agentId, isOrch });
       }
     }
@@ -7714,7 +7715,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       // server MCP. Prima erano mescolati e un `read`/`grep` dell'MCP sembrava il nostro.
       const normalTools = activeTools.filter((t: any) => !t?.mcp);
       const mcpTools = activeTools.filter((t: any) => !!t?.mcp);
-      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), activeToolCount: activeTools.length, activeTools: normalTools, mcpToolCount: mcpTools.length, mcpTools, prompt: prompt });
+      this.logDebug("system_prompt", { sessionKey: sk, len: prompt.length, delegationTree: ((this as any).__lastTree ? String((this as any).__lastTree).slice(0, 300) : null), hasSkills: !!(skillsForPrompt && skillsForPrompt.length > 0), skills: skillsForPrompt ? skillsForPrompt.map((s: any) => s.skillName) : [], agentId: resolvedAgent || "unknown", agentName: agentCfg?.name || resolvedAgent || "unknown", isDelegation: false, isOrchestrator, messageText: (data.text || "").substring(0, 200), activeToolCount: activeTools.length, activeTools: normalTools, mcpToolCount: mcpTools.length, mcpTools, prompt: prompt });
       // Store skills for delegation — #buildDelegateTool will inject them into the delegated agent's system prompt
       if (skillNames && skillNames.length > 0) {
         this.#pendingDelegationSkills.set(sk, skillNames);
