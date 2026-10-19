@@ -520,10 +520,21 @@ export function ChatHeader(props: ChatHeaderProps) {
                       let next = cur.filter((x: string) => !ids.includes(x))
                       if (next.length === 0) next = [cur[0]] // unica protezione: la chat non resta vuota
                       try { await (props as any).onSetChatAgents?.(next) } catch {}
+                      // Pulisci l'ALBERO della chat da tutti i rimossi (se no il picker li crede presenti)
+                      try {
+                        const sk = String((props as any).session?.id || '')
+                        const r2: any = await rpc('listSessions', {})
+                        const s3 = (r2?.sessions || []).find((x: any) => x.key === sk)
+                        const t: Record<string, string[]> = { ...((s3?.delegateTree) || {}) }
+                        for (const k of Object.keys(t)) t[k] = (t[k] || []).filter((x: string) => !ids.includes(x))
+                        await rpc('setSessionDelegateTree', { sessionKey: sk, tree: t })
+                      } catch {}
                       for (const id of notInChat) { try { await (fn ? fn(id) : Promise.resolve()) } catch {} }
+                      try { await (window as any).__quinkiRefresh?.() } catch {}
                       setSelectedForRemoval(new Set()); setMultiSelect(false)
                     } else {
                       try { await (fn ? fn(confirmDelete) : props.onAgentToggle(confirmDelete)) } catch {}
+                      try { await (window as any).__quinkiRefresh?.() } catch {}
                     }
                     setConfirmDelete(null)
                   }}

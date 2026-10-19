@@ -326,6 +326,7 @@ export function AgentGraphSheet(props: Props) {
   // La conferma ORIGINALE (in ChatHeader) deve usare la rimozione con promozione dei figli.
   useEffect(() => {
     (window as any).__quinkiRemoveNode = removeNode
+    (window as any).__quinkiRefresh = async () => { try { await Promise.all([reloadAgents(), reloadOrch()]) } catch {} }
     return () => { try { delete (window as any).__quinkiRemoveNode } catch {} }
   })
 
