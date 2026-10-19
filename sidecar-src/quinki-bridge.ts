@@ -6355,14 +6355,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             // Anti-ciclo: chi mi ha chiamato non lo richiamo. La profondità NON ha limiti.
             const chain = Array.isArray(opts?.chain) ? opts!.chain! : [];
             const chatRoster = String(sessionAgents).split(',').filter((id: string) => id && id !== selfId);
-            const _tree: Record<string, string[]> = ((self.#entries.get(sessionKey) as any)?.delegateTree) || {};
-            // Roster: l'albero della CHAT; se l'agente non ha figli nell'albero,
-            // vale il comportamento di sempre (l'orchestrator → agenti della chat).
-            const fromTree = Array.isArray(_tree[selfId]) ? _tree[selfId] : [];
-            const baseRoster = opts?.roster ?? (fromTree.length ? fromTree : (self.#isSessionOrchestrator(sessionKey, selfId) ? chatRoster : []));
-            const agentIds = baseRoster.filter(
-              (id: string) => id && id !== selfId && !chain.includes(id)
-            );
+            // COMPORTAMENTO ORIGINALE: la squadra = agenti della chat (meno me stesso)
+            const agentIds = chatRoster.filter((id: string) => id && id !== selfId);
           // Trova l'agente per nome (case-insensitive)
           let targetId: string | null = null;
           for (const id of agentIds) {
@@ -6425,15 +6419,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             const chatAgentsForTarget = String(sessionAgents).split(',').filter((id: string) => id && id !== targetId);
             const targetRoster = (declared && declared.length ? declared : chatAgentsForTarget)
               .filter((id: string) => id && id !== targetId && !chain.includes(id) && id !== selfId);
-            let tempDelegateTool: any = null;
-            if (targetRoster.length > 0) {
-              tempDelegateTool = self.#buildDelegateTool(sessionKey, {
-                selfAgentId: targetId,
-                chain: [...chain, selfId],
-                parentDelegationId: delegationId,
-              });
-              self.logDebug("delegate-subtool-built", { sessionKey, agentId: targetId, roster: targetRoster, depth: chain.length + 1 });
-            }
+            let tempDelegateTool: any = null; // ORIGINALE: il delegato non può delegare
           const tempResult = await self.#sdk.createAgentSession({
             cwd: tempCwd,
             agentDir: self.#agentDir,
@@ -6909,17 +6895,21 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       const hasDelegate = !!(agentId && (this.#isSessionOrchestrator(key, agentId) || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
       prompt += this.#modeNote(m, hasDelegate);
     }
-    // === Delega: albero dinamico (chi c'è sotto di me, chi posso chiamare) ===
-    if (agentId) {
+    // === Orchestrator: lista agenti della chat (COMPORTAMENTO ORIGINALE) ===
+    if (agentId && this.#isSessionOrchestrator(key, agentId)) {
       const sessionEntry = this.#entries.get(key);
-      const chatAgents = String((sessionEntry as any)?.agentId || "").split(",").filter(Boolean);
-      const isOrch = this.#isSessionOrchestrator(key, agentId);
-      const cfgAny: any = this.#readAgentConfigFile(agentId);
-      const hasDelegateTool = !!(isOrch || cfgAny?.tools?.includes("delegate_to_agent") || (Array.isArray(cfgAny?.delegates) && cfgAny.delegates.length));
-      if (hasDelegateTool) {
-          prompt += this.#delegationTreeNote(agentId, chatAgents, isOrch, ((this.#entries.get(key) as any)?.delegateTree) || {});
-        (this as any).__lastTree = this.#delegationTreeNote(agentId, chatAgents, isOrch);
-        this.logDebug("delegation-tree-injected", { sessionKey: key, agentId, isOrch });
+      const sessionAgents = (sessionEntry as any)?.agentId;
+      if (sessionAgents && sessionAgents !== agentId) {
+        const agentIds = String(sessionAgents).split(',').filter((id: string) => id && id !== agentId);
+        const agentNames: string[] = [];
+        for (const id of agentIds) {
+          try { const cfg = this.#readAgentConfig(id); agentNames.push(cfg?.name || id); } catch { agentNames.push(id); }
+        }
+        if (agentNames.length > 0) {
+          prompt += `\n\n**Agents available in this chat (use @name to tag them):**\n`;
+          for (const name of agentNames) prompt += `- @${name}\n`;
+          prompt += `\nWhen the user makes a request, analyze it and delegate to the most suitable agent. If the request is simple, answer directly.`;
+        }
       }
     }
     // === Skill: short instruction instead of <available_skills> ===
