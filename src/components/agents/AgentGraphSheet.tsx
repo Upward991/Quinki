@@ -248,6 +248,14 @@ export function AgentGraphSheet(props: Props) {
    */
   const removeNode = async (id: string) => {
     const inChat = chatIds.includes(id)
+    // ══ REGOLA CRITICA: se l'agente è IN CHAT si toglie SOLO dalla chat.
+    // Le `delegates` sono GLOBALI (condivise da tutte le chat): toccarle qui
+    // cambierebbe anche le altre chat!
+    if (inChat) {
+      try { props.onToggleChatAgent(id) } catch {}
+      await reloadAgents(); await reloadOrch()
+      return
+    }
     const kids: string[] = Array.isArray(byId[id]?.delegates) ? byId[id].delegates : []
     // 1) sostituisci il nodo con i suoi figli, in ogni padre che lo contiene
     for (const pid of Object.keys(byId)) {
