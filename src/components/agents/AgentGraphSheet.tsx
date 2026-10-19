@@ -404,7 +404,7 @@ export function AgentGraphSheet(props: Props) {
             try {
               await rpc('updateAgent', { id: subFor, config: { delegates: [...new Set([...cur, ...ids])] } })
               if (!orchId && props.onSetOrchestrator) props.onSetOrchestrator(subFor)
-              props.onRefreshAgents?.()
+              await reloadAgents()   // ridisegna subito, senza uscire e rientrare
               setSubFor(null)
             } catch {}
           }}
