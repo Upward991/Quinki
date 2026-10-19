@@ -176,8 +176,9 @@ export function AgentGraphSheet(props: Props) {
       if (!n.children.length) { n.x = 0; return 1 }
       const ws = n.children.map(measure)
       const total = ws.reduce((a, b) => a + b, 0)
+      // FIGLI A SINISTRA, NON CENTRATI: aggiungerne non sposta il padre di posizione.
       let acc = 0
-      n.children.forEach((c, i) => { c.x = acc + ws[i] / 2 - total / 2; acc += ws[i] })
+      n.children.forEach((c, i) => { c.x = acc; acc += ws[i] })
       return total
     }
 
@@ -191,7 +192,7 @@ export function AgentGraphSheet(props: Props) {
         nodes.push(n)
         for (const c of n.children) place(c, n.x)
       }
-      place(root, offsetX + (units - 1) * unitW / 2)
+      place(root, offsetX)
       return units * unitW
     }
 
@@ -401,7 +402,7 @@ export function AgentGraphSheet(props: Props) {
                     <>
                       <div style={{ display: 'flex', marginTop: 7, pointerEvents: bloccato }}>
                         <Chip picked={isPicked} onClick={(e: any) => { e.stopPropagation(); props.onPickModel(n.id) }} icon={<Cpu size={11} />}>
-                          {ov.model ? (modelLabel ? modelLabel(ov.model) : ov.model) : 'Chat default'}
+                          {ov.model ? (() => { const n = modelLabel ? modelLabel(ov.model) : ov.model; return n.length > 24 ? n.slice(0, 23) + '…' : n })() : 'Chat default'}
                         </Chip>
                       </div>
                       <div style={{ display: 'flex', marginTop: 4, pointerEvents: bloccato }}>
@@ -478,8 +479,9 @@ function Chip({ children, icon, onClick, picked }: any) {
         border: `1px solid ${picked ? 'rgba(255,255,255,.5)' : 'var(--q-border)'}`,
         fontSize: 10.5, color: picked ? '#fff' : 'var(--q-text-secondary)',
         fontFamily: 'var(--font-interface)', cursor: 'pointer', whiteSpace: 'nowrap',
+        maxWidth: 152, overflow: 'hidden',
       }}>
-      {icon}{children}
+      {icon}<span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{children}</span>
     </span>
   )
 }

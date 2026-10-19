@@ -4431,11 +4431,13 @@ Read this file to view it.` }] };
       tree[root] = members.filter((id) => id !== root);
       try { this.#writeChatMeta(key, { agentIds: members.join(","), orchestratorId: root, delegateTree: tree }); this.#chatMetaCache.delete(key); } catch {}
     } else if (roots.length > 1) {
+      // Nodi dichiarati ma senza padre: si completano SOLO IN MEMORIA (sotto la radice),
+      // MAI su disco: scriverli appiattiva l'albero a ogni lettura (bug: i sub-agent
+      // tornavano tutti sotto la radice dopo un attach).
       for (const r of roots) if (r !== root) {
         tree[root] = [...new Set([...(tree[root] || []), r])];
         seenParent.add(r);
       }
-      try { this.#writeChatMeta(key, { agentIds: members.join(","), orchestratorId: root, delegateTree: tree }); this.#chatMetaCache.delete(key); } catch {}
     }
     if (seenParent.has(root)) {
       for (const pid of Object.keys(tree)) tree[pid] = tree[pid].filter((x) => x !== root);
