@@ -105,6 +105,14 @@ Every message carries an injected timestamp (`[DD Mon YYYY, HH:MM:SS]`) as conve
 
 Delegations are entries in the session tree (parentId chain), rendered by the UI as collapsible blocks. The vendored `agent-session.js` filters delegation entries out before LLM calls: the orchestrator's context never pays for delegated sub-conversations, while the UI keeps the full audit trail.
 
+## 19. A chat is an agent tree; the tree is the only source of truth
+
+A chat is not a list of agents: it is a **tree**. The root is the agent that answers (the orchestrator role), every other node has a parent. `agentIds` and `orchestratorId` are **derived** (nodes = tree, role = root), never stored as independent truth: one file per chat (`chat-meta.json`) holds the structure and the per-chat overrides. Removing the root is refused; removing a node promotes its children; making a node orchestrator re-roots the tree and demotes the previous root to its child.
+
+Delegation follows the tree at every level: an agent is told its whole subtree but may call only its direct children — the path is chosen by the agents, not by the runtime. Tool answers always carry the caller's identity, the current `graph_version` (a hash of the tree) and the list of agents it can call, so the prompt can be a snapshot without ever becoming a lie.
+
+---
+
 ## 18. Per-session compaction toggle + read-state notifications
 
 Notifications (All/Messages/Tasks/Muted per chat) and unread markers use persisted read-state files; recovery is event-based (no polling). Compaction is opt-out per session with a global default in Settings.

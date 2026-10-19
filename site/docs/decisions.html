@@ -77,6 +77,10 @@
 <p>Every message carries an injected timestamp (<code>[DD Mon YYYY, HH:MM:SS]</code>) as conversation metadata (via the vendor&#39;s conversation info, not message content): the model knows <em>when</em> things happen without the user repeating dates. Old-format metadata is stripped before the model sees it to avoid duplication.</p>
 <h2>17. Delegations in the conversation tree at zero context cost</h2>
 <p>Delegations are entries in the session tree (parentId chain), rendered by the UI as collapsible blocks. The vendored <code>agent-session.js</code> filters delegation entries out before LLM calls: the orchestrator&#39;s context never pays for delegated sub-conversations, while the UI keeps the full audit trail.</p>
+<h2>19. A chat is an agent tree; the tree is the only source of truth</h2>
+<p>A chat is not a list of agents: it is a <strong>tree</strong>. The root is the agent that answers (the orchestrator role), every other node has a parent. <code>agentIds</code> and <code>orchestratorId</code> are <strong>derived</strong> (nodes = tree, role = root), never stored as independent truth: one file per chat (<code>chat-meta.json</code>) holds the structure and the per-chat overrides. Removing the root is refused; removing a node promotes its children; making a node orchestrator re-roots the tree and demotes the previous root to its child.</p>
+<p>Delegation follows the tree at every level: an agent is told its whole subtree but may call only its direct children — the path is chosen by the agents, not by the runtime. Tool answers always carry the caller&#39;s identity, the current <code>graph_version</code> (a hash of the tree) and the list of agents it can call, so the prompt can be a snapshot without ever becoming a lie.</p>
+<hr>
 <h2>18. Per-session compaction toggle + read-state notifications</h2>
 <p>Notifications (All/Messages/Tasks/Muted per chat) and unread markers use persisted read-state files; recovery is event-based (no polling). Compaction is opt-out per session with a global default in Settings.</p>
 <hr>

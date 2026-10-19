@@ -95,6 +95,16 @@
 <li><strong>Skills</strong> are knowledge modules (<code>SKILL.md</code> with frontmatter). Attach them to agents or inject them per-message with <code>/skill</code></li>
 <li>Manage everything in the <strong>Agents</strong> tab</li>
 </ul>
+<h3>The agent tree</h3>
+<p>Every chat is an <strong>agent tree</strong>, and the graph button in the chat header opens it.</p>
+<ul>
+<li>The <strong>root</strong> of the tree is the agent that answers your messages (the <em>orchestrator</em>). Every other node has a parent.</li>
+<li><strong>Add sub-agent</strong> on any node: the new agent becomes its <strong>child</strong>. You can nest as deep as you want (<code>root → A → B → C…</code>).</li>
+<li><strong>Use as orchestrator</strong> on any node: that node becomes the root, and the previous orchestrator becomes <strong>its child</strong>.</li>
+<li><strong>Remove</strong> a node: its children <strong>move up</strong> to its parent. The <strong>root cannot be removed</strong> — assign the role to another agent first.</li>
+<li><strong>Model</strong> and <strong>thinking</strong> are per node <strong>and per chat</strong>: changing them here never affects the same agent in another chat.</li>
+</ul>
+<p>Inside the chat, each agent knows its own subtree: it sees <strong>every agent below it</strong>, but it can delegate <strong>only to its direct children</strong> — to reach a deeper agent it must ask the child to delegate further and report back. That is how a request travels down the tree and the answer travels back up, one step at a time.</p>
 <h2>5. Sessions</h2>
 <ul>
 <li><strong>Folders</strong> with drag &amp; drop, rename, nesting</li>

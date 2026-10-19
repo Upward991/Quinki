@@ -31,7 +31,10 @@ One agent in a chat can be given the **Orchestrator** role. Messages go to it; w
 - the delegated agent runs in its own temporary session, with its own persona, model and tools
 - its progress streams into the chat **inside a collapsible block** you can open and read
 - the orchestrator only receives the final answer — delegations cost **zero context** in its conversation
-- you always see who did what, and can inspect the steps
+- **any agent can have its own sub-agents**: delegations nest to any depth (`root → A → B → C`)
+- each agent is told its **own subtree** at every turn, but it can delegate **only to its direct children** — so the route is chosen by the agents, not hard-coded
+- every tool answer reports who replied, the current `graph_version` and the agents it can call next, so a stale prompt is always detectable
+- you always see who did what, and can inspect the steps, level by level
 
 This is the core idea of Quinki: small, specialised agents, orchestrated — instead of one giant prompt trying to be everything.
 
