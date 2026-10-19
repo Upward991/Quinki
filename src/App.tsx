@@ -2549,6 +2549,11 @@ export default function App() {
                           let folder = folders.find((f) => f.id === fid)
                           let parentId = folder?.parentId || null
                           let folderOrder = folder?.order || Date.now()
+                          // BUG (20 ott): eliminando una cartella PINNATA i figli salivano
+                          // ma finivano nella sezione unpinned. Se la cartella era pinnata
+                          // e i figli tornano al livello superiore (root), restano pinnati.
+                          let wasPinned = !!(folder as any)?.pinned || !!(folder as any)?.ownPinned
+                          let keepPinned = wasPinned && !parentId
                           // Get direct children (sessions + subfolders) sorted by order descending (same visual order)
                           let childSessions = sessions.filter((s) => s.folderId === fid)
                           let childFolders = folders.filter((f) => f.parentId === fid)
@@ -2562,16 +2567,15 @@ export default function App() {
                             let child = allChildren[i]
                             let newOrder = folderOrder - i
                             if (child.kind === 'folder') {
-                              e.updateFolders(
-                                folders.map((f) =>
-                                  f.id === child.id ? { ...f, parentId: parentId, order: newOrder } : f,
-                                ),
-                              )
-                              folders = folders.map((f) =>
-                                f.id === child.id ? { ...f, parentId: parentId, order: newOrder } : f,
-                              )
+                              const patchFolder = (f: any) =>
+                                f.id === child.id
+                                  ? { ...f, parentId: parentId, order: newOrder, ...(keepPinned ? { pinned: true, ownPinned: false, pinnedOrder: newOrder } : {}) }
+                                  : f
+                              e.updateFolders(folders.map(patchFolder))
+                              folders = folders.map(patchFolder)
                             } else {
                               e.moveSession(child.id, parentId, newOrder)
+                              if (keepPinned) e.setSessionPinned(child.id, true, newOrder)
                             }
                           }
                           // Delete the folder
