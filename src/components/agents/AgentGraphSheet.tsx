@@ -63,7 +63,8 @@ export function AgentGraphSheet(props: Props) {
   // Copia locale: dopo un salvataggio rileggo gli agenti e ridisegno SUBITO,
   // senza aspettare il refresh globale dell'app.
   const [localAgents, setLocalAgents] = useState<any[]>(agents)
-  useEffect(() => { setLocalAgents(agents) }, [agents])
+  // NON svuotare mai la copia locale con un array vuoto (succede durante il refresh dell'app)
+  useEffect(() => { if (Array.isArray(agents) && agents.length) setLocalAgents(agents) }, [agents])
   const reloadAgents = async () => {
     try {
       const r: any = await rpc('listAgents', {})
@@ -72,6 +73,8 @@ export function AgentGraphSheet(props: Props) {
     } catch {}
     try { props.onRefreshAgents?.() } catch {}
   }
+  useEffect(() => { if (!localAgents.length) reloadAgents() }, [])
+
   const byId = useMemo(() => {
     const m: Record<string, any> = {}
     for (const a of localAgents) m[a.id] = a
