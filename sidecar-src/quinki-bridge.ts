@@ -6355,8 +6355,15 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             // Anti-ciclo: chi mi ha chiamato non lo richiamo. La profondità NON ha limiti.
             const chain = Array.isArray(opts?.chain) ? opts!.chain! : [];
             const chatRoster = String(sessionAgents).split(',').filter((id: string) => id && id !== selfId);
-            // COMPORTAMENTO ORIGINALE: la squadra = agenti della chat (meno me stesso)
-            const agentIds = chatRoster.filter((id: string) => id && id !== selfId);
+            // STRUTTURA DELLA CHAT: ognuno delega SOLO ai suoi figli nell'albero.
+            // Se non ha figli: l'orchestrator usa gli agenti della chat (comportamento originale),
+            // gli altri non hanno nessuno da chiamare.
+            const _tree: Record<string, string[]> = ((self.#entries.get(sessionKey) as any)?.delegateTree) || {};
+            const _mine = Array.isArray(_tree[selfId]) ? _tree[selfId].filter(Boolean) : [];
+            const agentIds = (_mine.length
+              ? _mine
+              : (self.#isSessionOrchestrator(sessionKey, selfId) ? chatRoster : [])
+            ).filter((id: string) => id && id !== selfId);
           // Trova l'agente per nome (case-insensitive)
           let targetId: string | null = null;
           for (const id of agentIds) {
@@ -6419,7 +6426,15 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             const chatAgentsForTarget = String(sessionAgents).split(',').filter((id: string) => id && id !== targetId);
             const targetRoster = (declared && declared.length ? declared : chatAgentsForTarget)
               .filter((id: string) => id && id !== targetId && !chain.includes(id) && id !== selfId);
-            let tempDelegateTool: any = null; // ORIGINALE: il delegato non può delegare
+            let tempDelegateTool: any = null;
+            {
+              const _t2: Record<string, string[]> = ((self.#entries.get(sessionKey) as any)?.delegateTree) || {};
+              const _kids = Array.isArray(_t2[targetId]) ? _t2[targetId].filter(Boolean) : [];
+              if (_kids.length > 0) {
+                tempDelegateTool = self.#buildDelegateTool(sessionKey, { selfAgentId: targetId, parentDelegationId: delegationId });
+                self.logDebug("delegate-subtool-built", { sessionKey, agentId: targetId, kids: _kids });
+              }
+            }
           const tempResult = await self.#sdk.createAgentSession({
             cwd: tempCwd,
             agentDir: self.#agentDir,
