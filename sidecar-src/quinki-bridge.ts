@@ -1263,7 +1263,11 @@ class QuinkiBridge {
         ...(() => {
           try {
             const p = path.join(this.#quinkiSessionDir(s.key), "chat-meta.json");
-            const m = JSON.parse(fs.readFileSync(p, "utf8"));
+            const st = fs.statSync(p);
+            let m: any = null;
+            const c = this.#chatMetaCache.get(s.key);
+            if (c && c.mtime === st.mtimeMs) m = c.data;
+            else { m = JSON.parse(fs.readFileSync(p, "utf8")); this.#chatMetaCache.set(s.key, { mtime: st.mtimeMs, data: m }); }
             const out: any = {};
             if (typeof m?.agentIds === "string") out.agentId = m.agentIds;
             if (m?.orchestratorId !== undefined) out.orchestratorId = m.orchestratorId || "";
@@ -5910,6 +5914,7 @@ Read this file to view it.` }] };
   }
 
   // === Per-agent API key injection ===
+  #chatMetaCache: Map<string, { mtime: number; data: any }> = new Map(); // 19 ott: cache chat-meta
   #activeApiKeys: string[] = []; // env vars attualmente caricate
   #agentOverride: Map<string, string> = new Map(); // sessionKey -> agentId (cambio agente mid-session)
   #agentOverridePrior: Map<string, string | null> = new Map(); // ultimo agentId per cui è stato chiamato setAgent (anti-recreate)
