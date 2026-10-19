@@ -69,10 +69,17 @@ export function AgentGraphSheet(props: Props) {
     try {
       const r: any = await rpc('listAgents', {})
       const list = r?.agents || []
-      if (Array.isArray(list) && list.length) setLocalAgents(list.map((a: any) => ({ ...a, delegates: Array.isArray(a.delegates) ? a.delegates : [] })))
+      if (Array.isArray(list) && list.length) {
+        const mapped = list.map((a: any) => ({ ...a, delegates: Array.isArray(a.delegates) ? a.delegates : [] }))
+        setLocalAgents(mapped)
+        try { props.onRefreshAgents?.() } catch {}
+        return mapped
+      }
     } catch {}
     try { props.onRefreshAgents?.() } catch {}
+    return null
   }
+
   useEffect(() => { if (!localAgents.length) reloadAgents(); reloadOrch() }, [])
 
   // Il ruolo va riletto dal motore: quando resta un solo agente il motore lo AZZERA
@@ -255,8 +262,21 @@ export function AgentGraphSheet(props: Props) {
         await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
       } catch {}
     }
-    await reloadAgents()
+    const fresh = await reloadAgents()
     await reloadOrch()
+    // Se è rimasto UN SOLO nodo (un agente senza sub-agent) il ruolo non serve più.
+    try {
+      const sess: any = await rpc('listSessions', {})
+      const s2 = (sess?.sessions || []).find((x: any) => x.key === props.sessionKey)
+      const ids = String(s2?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
+      const only = ids.length === 1 ? ids[0] : null
+      const list = fresh || localAgents
+      const kids = only ? ((list.find((a: any) => a.id === only)?.delegates) || []) : []
+      if (only && kids.length === 0 && s2?.orchestratorId) {
+        await rpc('setSessionOrchestrator', { sessionKey: props.sessionKey, agentId: null })
+        setLocalOrch('')
+      }
+    } catch {}
   }
 
   /** Porta un agente (di qualsiasi livello) a orchestrator: lo stacca dal padre,
