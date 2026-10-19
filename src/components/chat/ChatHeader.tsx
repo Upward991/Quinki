@@ -611,6 +611,8 @@ export function ChatHeader(props: ChatHeaderProps) {
                 onCancelSelect={() => { setMultiSelect(false); setSelectedForRemoval(new Set()) }}
                 onChangeAgent={(id) => (props as any).onSetChatAgents?.([id])}
                 onSetOrchestrator={(id) => (props as any).onSetOrchestrator?.(id)}
+                onAddToChat={(id) => props.onAgentToggle(id)}
+                onSelectAgent={(id) => { setMultiSelect(true); setSelectedForRemoval(new Set([id])) }}
                 onPickModel={(id) => setModelPickerFor(id)}
                 onPickThinking={(id) => setThinkingPickerFor(id)}
                 onRefreshAgents={(props as any).onRefreshAgents}
