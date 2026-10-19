@@ -816,7 +816,7 @@ class QuinkiBridge {
           for (const d of Array.isArray(disk) ? disk : []) if (d && d.key) diskMap.set(d.key, d);
         }
         const FIELD_MAP: [string, string][] = [
-          ["agentId", "agentIds"], ["orchestratorId", "orchestratorId"], ["delegateTree", "delegateTree"], ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
+          ["workingDir", "workingDir"], ["model", "model"], ["thinkingLevel", "thinkingLevel"],
           ["mode", "mode"], ["agentOverrides", "agentOverrides"], ["messageAgents", "messageAgents"], ["messageThinking", "messageThinking"],
           ["messageSkills", "messageSkills"], ["messageTaskClips", "messageTaskClips"], ["messageAttachments", "messageAttachments"], ["compactionAuto", "compactionAuto"], ["compactionThreshold", "compactionThreshold"], ["folderId", "folderId"],
           ["pinned", "pinned"], ["pinnedOrder", "pinnedOrder"],
@@ -4581,7 +4581,7 @@ Read this file to view it.` }] };
     try {
       const dir = this.#quinkiSessionDir(key);
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: agentIds || '', orchestratorId: ((this.#entries.get(key) as any)?.orchestratorId) || '', ts: Date.now() }, null, 2), "utf8");
+      // (agents.json non si scrive più: unica fonte = chat-meta.json)
     } catch {}
     this.logDebug("set-chat-agents", { sessionKey: key, agentIds, saved: true });
     // === EVENT-DRIVEN: la lista agenti della chat è cambiata → i tool cambiano con
@@ -4607,7 +4607,7 @@ Read this file to view it.` }] };
     try {
       const dir = this.#quinkiSessionDir(key);
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: (s as any)?.agentId || "", orchestratorId: (s as any)?.orchestratorId || "", delegateTree: clean, ts: Date.now() }, null, 2), "utf8");
+      // (agents.json non si scrive più: unica fonte = chat-meta.json)
     } catch {}
     this.logDebug("set-delegate-tree", { sessionKey: key, nodes: Object.keys(clean).length });
     return { ok: true, delegateTree: clean };
@@ -4662,7 +4662,7 @@ Read this file to view it.` }] };
     try {
       const dir = this.#quinkiSessionDir(key);
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, "agents.json"), JSON.stringify({ agentIds: nextAgentId, orchestratorId: target || "", ts: Date.now() }, null, 2), "utf8");
+      // (agents.json non si scrive più: unica fonte = chat-meta.json)
     } catch {}
     this.logDebug("set-session-orchestrator", { sessionKey: key, orchestratorId: target || null, agentIds: nextAgentId });
     if (this.#active.has(key)) this.#safeRecreateSession(key, "orchestrator-changed");
