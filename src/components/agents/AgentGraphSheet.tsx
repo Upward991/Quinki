@@ -446,25 +446,19 @@ export function AgentGraphSheet(props: Props) {
             <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 180), top: Math.min(subMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, minWidth: 170 }}>
               {selectMode ? (
                 <>
+                  {item('Deselect all', 'var(--q-text)', () => { props.onCancelSelect(); setSubMenu(null) })}
                   {picked.size > 0 && item(`Remove ${picked.size} selected`, 'var(--q-accent-danger)', () => { props.onRequestRemoveSelected(); setSubMenu(null) })}
-                  {item('Cancel selection', 'var(--q-text)', () => { props.onCancelSelect(); setSubMenu(null) })}
                 </>
-              ) : (<>
-
-              {item('Set as orchestrator', 'var(--q-text)', () => {
-                makeOrchestrator(subMenu.id)
-                setSubMenu(null)
-              })}
-              {item('Select', 'var(--q-text)', () => {
-                try { props.onSelectAgent(subMenu.id) } catch {}
-                setSubMenu(null)
-              })}
-              {item('Remove', 'var(--q-accent-danger)', async () => {
-                if (inChat) { try { props.onRemoveFromChat(subMenu.id) } catch {} setSubMenu(null); return }
-                // sub-agent: conferma anche qui, come per gli agenti della chat
-                setConfirmSub(subMenu.id); setSubMenu(null)
-              })}
-              </>)}
+              ) : (
+                <>
+                  {chatAgentIds.length > 1 && subMenu.id !== orchId && item('Use as orchestrator', 'var(--q-text)', () => { makeOrchestrator(subMenu.id); setSubMenu(null) })}
+                  {chatAgentIds.length > 1 && item('Select', 'var(--q-text)', () => { props.onSelectAgent(subMenu.id); setSubMenu(null) })}
+                  {item('Remove', 'var(--q-accent-danger)', async () => {
+                    if (inChat) { props.onRemoveFromChat(subMenu.id); setSubMenu(null); return }
+                    setConfirmSub(subMenu.id); setSubMenu(null)
+                  })}
+                </>
+              )}
             </div>
           </>
         )
