@@ -448,7 +448,7 @@ export function AgentGraphSheet(props: Props) {
         {laid.nodes.length === 0 ? (
           <div style={{ padding: 40, color: 'var(--q-text-tertiary)', fontSize: 13, fontFamily: 'var(--font-interface)' }}>No agents in this chat.</div>
         ) : (
-          <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`, transformOrigin: '0 0', willChange: 'transform', backfaceVisibility: 'hidden', width: laid.width, height: laid.height }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', width: laid.width, height: laid.height }}>
             <svg width={laid.width} height={laid.height} style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible', pointerEvents: 'none' }}>
               {edges.map((e, i) => {
                 const x1 = e.from.x + NODE_W / 2
