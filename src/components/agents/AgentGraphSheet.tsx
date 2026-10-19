@@ -90,7 +90,10 @@ export function AgentGraphSheet(props: Props) {
 
   // Il ruolo va riletto dal motore: quando resta un solo agente il motore lo AZZERA
   // e il grafo deve smettere di mostrare l'orchestrator.
+  const refreshing = React.useRef(false)
   const reloadOrch = async () => {
+    if (refreshing.current) return
+    refreshing.current = true
     try {
       const r: any = await rpc('listSessions', {})
       const s = (r?.sessions || []).find((x: any) => x.key === props.sessionKey)
@@ -99,13 +102,28 @@ export function AgentGraphSheet(props: Props) {
       if (ids.length) setLocalChatIds(ids)
       setTree(((s as any)?.delegateTree || {}) as Record<string, string[]>)
       dlog('reload-orch', { sessionKey: props.sessionKey, agentId: s?.agentId, orch: s?.orchestratorId, tree: (s as any)?.delegateTree })
-    } catch {}
+    } catch {} finally { refreshing.current = false }
   }
 
   const saveTree = async (next: Record<string, string[]>) => {
+    dlog('saveTree', { next })
     try { await rpc('setSessionDelegateTree', { sessionKey: props.sessionKey, tree: next }) } catch {}
     setTree(next)
     await reloadOrch()
+  }
+
+  /** Modifica transazionale: legge l'albero FRESCO dal motore, applica, scrive. */
+  const mutateTree = async (fn: (cur: Record<string, string[]>) => Record<string, string[]>, tag: string) => {
+    let cur: Record<string, string[]> = {}
+    try {
+      const r: any = await rpc('listSessions', {})
+      const s2 = (r?.sessions || []).find((x: any) => x.key === props.sessionKey)
+      cur = (s2?.delegateTree || {}) as Record<string, string[]>
+    } catch {}
+    const next = fn(cur)
+    dlog('mutateTree', { tag, before: cur, after: next })
+    await saveTree(next)
+    return next
   }
 
 
@@ -272,9 +290,7 @@ export function AgentGraphSheet(props: Props) {
     // Le `delegates` sono GLOBALI (condivise da tutte le chat): toccarle qui
     // cambierebbe anche le altre chat!
     // Esce dall'ALBERO e dalla CHAT (sono la stessa cosa: tutti i nodi sono agenti della chat)
-    const t2: Record<string, string[]> = {}
-    for (const [pid, kids] of Object.entries(tree)) t2[pid] = (kids || []).filter((x: string) => x !== id)
-    await saveTree(t2)
+    await mutateTree((t) => { const n2: Record<string, string[]> = {}; for (const [pid, kids] of Object.entries(t)) n2[pid] = (kids || []).filter((x: string) => x !== id); return n2 }, 'remove')
     try {
       const next = chatIds.filter((x: string) => x !== id)
       if (next.length) await rpc('setChatAgents', { sessionKey: props.sessionKey, agentIds: next.join(',') })
@@ -481,7 +497,7 @@ export function AgentGraphSheet(props: Props) {
             const cur: string[] = (tree[subFor] || [])
             dlog('add-click', { parent: subFor, ids, treeBefore: tree, chatBefore: chatIds })
             try {
-              await saveTree({ ...tree, [subFor]: [...new Set([...cur, ...ids])] })
+              await mutateTree((t) => ({ ...t, [subFor]: [...new Set([...(t[subFor] || []), ...ids])] }), 'add')
               // È un agente DELLA CHAT: entra anche nella lista agenti della sessione
               try {
                 const ids2 = [...new Set([...chatIds, ...ids])]
