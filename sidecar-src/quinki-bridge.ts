@@ -849,9 +849,10 @@ class QuinkiBridge {
             const _cur: any = (d as any)[f];
             const _empty = _cur === undefined || _cur === null || (typeof _cur === 'object' && !Array.isArray(_cur) && Object.keys(_cur).length === 0);
             if (_empty) {
-              if (diskE && (diskE as any)[f] !== undefined && (diskE as any)[f] !== null) (d as any)[f] = (diskE as any)[f];
-              else if (meta && (meta as any)[m] !== undefined && (meta as any)[m] !== null) (d as any)[f] = (meta as any)[m];
-              else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (d as any)[f] = (backup as any)[m];
+              const _ok = (v: any) => v !== undefined && v !== null && !(typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0);
+              if (_ok((diskE as any)?.[f])) (d as any)[f] = (diskE as any)[f];
+              else if (_ok((meta as any)?.[m])) (d as any)[f] = (meta as any)[m];
+              else if (_ok((backup as any)?.[m])) (d as any)[f] = (backup as any)[m];
             }
           }
           // === FIX (22 set): unione PER-CHIAVE degli store chip (anti-clobber tra processi) ===
