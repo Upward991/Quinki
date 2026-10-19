@@ -67,7 +67,7 @@ export function AgentGraphSheet(props: Props) {
   // Niente derivazioni: senza ruolo il grafo resta senza orchestrator.
   const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
-  const soloUno = chatAgentIds.length <= 1 && !(chatAgentIds.length === 1 && Array.isArray(byId[chatAgentIds[0]]?.delegates) && byId[chatAgentIds[0]].delegates.length > 0)
+  const soloUno = chatAgentIds.length <= 1 && !orchId
   const [subFor, setSubFor] = useState<string | null>(null)
   const [changeFor, setChangeFor] = useState(false)
   const [subMenu, setSubMenu] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -131,7 +131,8 @@ export function AgentGraphSheet(props: Props) {
       width = placeTree(root, 0)
     } else {
       // Nessun orchestrator: foresta — ogni agente della chat CON I SUOI sub-agent
-      const roots = chatAgentIds.filter(id => byId[id]).map(id => build(id, 0, new Set([id]), false)).filter(Boolean) as TNode[]
+      // SENZA orchestrator il tree è piatto: niente sub-tree.
+      const roots = chatAgentIds.filter(id => byId[id]).map(id => ({ id, agent: byId[id], depth: 0, x: 0, y: 0, children: [], isOrch: false })) as TNode[]
       if (!roots.length) return { nodes, width: 0, height: 0 }
       let offset = 0
       for (const r of roots) { offset += placeTree(r, offset); offset += GAP_X }
