@@ -89,6 +89,8 @@ export function AgentGraphSheet(props: Props) {
       const r: any = await rpc('listSessions', {})
       const s = (r?.sessions || []).find((x: any) => x.key === props.sessionKey)
       setLocalOrch((s?.orchestratorId || '') as string)
+      const ids = String(s?.agentId || '').split(',').map((x: string) => x.trim()).filter(Boolean)
+      if (ids.length) setLocalChatIds(ids)
     } catch {}
   }
 
@@ -102,9 +104,13 @@ export function AgentGraphSheet(props: Props) {
   // Niente derivazioni: senza ruolo il grafo resta senza orchestrator.
   // Il ruolo si legge dal MOTORE (reloadOrch); la prop può essere vecchia e non deve sovrascrivere.
   const [localOrch, setLocalOrch] = useState(orchestratorId)
+  const [localChatIds, setLocalChatIds] = useState<string[]>(chatAgentIds)
+  useEffect(() => { if (Array.isArray(chatAgentIds) && chatAgentIds.length) setLocalChatIds(chatAgentIds) }, [chatAgentIds])
+  // FONTE VERA: l'app può avere la lista vecchia; il motore no.
+  const chatIds = localChatIds.length ? localChatIds : chatAgentIds
   const orchId = (localOrch && byId[localOrch]) ? localOrch : ''
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
-  const soloUno = chatAgentIds.length <= 1 && !orchId
+  const soloUno = chatIds.length <= 1 && !orchId
   const [subFor, setSubFor] = useState<string | null>(null)
   const [changeFor, setChangeFor] = useState(false)
 
@@ -123,7 +129,7 @@ export function AgentGraphSheet(props: Props) {
       let kidsIds: string[] = []
       if (depth === 0 && markOrch) {
         const declared = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
-        kidsIds = [...new Set([...chatAgentIds.filter(x => x !== id), ...declared])]
+        kidsIds = [...new Set([...chatIds.filter(x => x !== id), ...declared])]
       } else {
         kidsIds = Array.isArray(agent.delegates) ? agent.delegates.filter(Boolean) : []
       }
@@ -167,7 +173,7 @@ export function AgentGraphSheet(props: Props) {
     } else {
       // Nessun orchestrator: foresta — ogni agente della chat CON I SUOI sub-agent
       // SENZA orchestrator il tree è piatto: niente sub-tree.
-      const roots = chatAgentIds.filter(id => byId[id]).map(id => ({ id, agent: byId[id], depth: 0, x: 0, y: 0, children: [], isOrch: false })) as TNode[]
+      const roots = chatIds.filter(id => byId[id]).map(id => ({ id, agent: byId[id], depth: 0, x: 0, y: 0, children: [], isOrch: false })) as TNode[]
       if (!roots.length) return { nodes, width: 0, height: 0 }
       let offset = 0
       for (const r of roots) { offset += placeTree(r, offset); offset += GAP_X }
@@ -178,7 +184,7 @@ export function AgentGraphSheet(props: Props) {
     for (const n of nodes) n.x -= minX
     const maxY = Math.max(...nodes.map(n => n.y + cardH(n)))
     return { nodes, width, height: maxY }
-  }, [orchId, byId, chatAgentIds, soloUno])
+  }, [orchId, byId, chatIds, soloUno])
 
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
@@ -241,7 +247,7 @@ export function AgentGraphSheet(props: Props) {
    *  - se era l'orchestrator: il ruolo si azzera (NESSUN automatismo)
    */
   const removeNode = async (id: string) => {
-    const inChat = chatAgentIds.includes(id)
+    const inChat = chatIds.includes(id)
     const kids: string[] = Array.isArray(byId[id]?.delegates) ? byId[id].delegates : []
     // 1) sostituisci il nodo con i suoi figli, in ogni padre che lo contiene
     for (const pid of Object.keys(byId)) {
@@ -433,7 +439,7 @@ export function AgentGraphSheet(props: Props) {
       {subFor && (
         <AgentPickerModal
           agents={agents}
-          initialSelected={[...new Set([...chatAgentIds, ...laid.nodes.map(n => n.id), ...((byId[subFor]?.delegates as string[]) || [])])]}
+          initialSelected={[...new Set([...chatIds, ...laid.nodes.map(n => n.id), ...((byId[subFor]?.delegates as string[]) || [])])]}
           title={`Add sub agents to ${byId[subFor]?.name || subFor}`}
           onClose={() => setSubFor(null)}
           onAdd={async (ids: string[]) => {
@@ -457,7 +463,7 @@ export function AgentGraphSheet(props: Props) {
       {changeFor && (
         <AgentPickerModal
           agents={agents}
-          initialSelected={chatAgentIds}
+          initialSelected={chatIds}
           title="Change agent"
           single
           onClose={() => setChangeFor(false)}
