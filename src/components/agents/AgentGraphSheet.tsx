@@ -300,6 +300,19 @@ export function AgentGraphSheet(props: Props) {
     }
   }
 
+  // Scorciatoie ⌘Z / ⇧⌘Z (solo con il grafo aperto, mai dentro un campo di testo)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+      const t: any = e.target
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      e.preventDefault()
+      if (e.shiftKey) { if (canRedo) void graphStep('redo') } else { if (canUndo) void graphStep('undo') }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canUndo, canRedo])
+
   /** Annulla / ripristina l'ultima modifica del GRAFO (10 passi, per chat). */
   const graphStep = async (dir: 'undo' | 'redo') => {
     try { await rpc(dir === 'undo' ? 'graphUndo' : 'graphRedo', { sessionKey: props.sessionKey }) } catch {}
@@ -341,8 +354,23 @@ export function AgentGraphSheet(props: Props) {
             </span>
 
             <div style={{ width: 10, flexShrink: 0 }} />
-            <IconBtn title="Undo graph change" onClick={() => { if (canUndo) void graphStep('undo') }} style={!canUndo ? { opacity: 0.35, cursor: 'default' } : undefined}><ChevronLeft size={18} /></IconBtn>
-            <IconBtn title="Redo graph change" onClick={() => { if (canRedo) void graphStep('redo') }} style={!canRedo ? { opacity: 0.35, cursor: 'default' } : undefined}><ChevronRight size={18} /></IconBtn>
+            {(['undo', 'redo'] as const).map((dir) => {
+              const on = dir === 'undo' ? canUndo : canRedo
+              return (
+                <button key={dir}
+                  onClick={() => { if (on) void graphStep(dir) }}
+                  onMouseEnter={e => { if (on) { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' } }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}
+                  style={{
+                    marginLeft: dir === 'redo' ? 6 : 0,
+                    padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--q-border)',
+                    backgroundColor: 'transparent', color: 'var(--q-text-secondary)',
+                    fontSize: 12, fontFamily: 'var(--font-interface)', textTransform: 'capitalize',
+                    opacity: on ? 1 : 0.35, cursor: on ? 'pointer' : 'default', whiteSpace: 'nowrap',
+                  }}
+                >{dir}</button>
+              )
+            })}
 
             <div style={{ flex: 1 }} />
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
