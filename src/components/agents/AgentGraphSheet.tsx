@@ -394,7 +394,7 @@ export function AgentGraphSheet(props: Props) {
       {subFor && (
         <AgentPickerModal
           agents={agents}
-          initialSelected={[...chatAgentIds, ...((byId[subFor]?.delegates as string[]) || [])]}
+          initialSelected={[...new Set([...chatAgentIds, ...laid.nodes.map(n => n.id), ...((byId[subFor]?.delegates as string[]) || [])])]}
           title={`Add sub agents to ${byId[subFor]?.name || subFor}`}
           onClose={() => setSubFor(null)}
           onAdd={async (ids: string[]) => {
