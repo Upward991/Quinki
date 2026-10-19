@@ -63,10 +63,9 @@ export function AgentGraphSheet(props: Props) {
     return m
   }, [agents])
 
-  // Ruolo: quello della sessione; se non c'è (chat a 1 agente il motore lo nasconde)
-  // vale la regola dell'utente: chi ha sub-agent È l'orchestrator.
-  const derivedOrch = chatAgentIds.find(id => Array.isArray(byId[id]?.delegates) && byId[id].delegates.length)
-  const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : (derivedOrch || '')
+  // Ruolo: SOLO quello scelto (ora il motore lo restituisce anche con 1 agente).
+  // Niente derivazioni: senza ruolo il grafo resta senza orchestrator.
+  const orchId = (orchestratorId && byId[orchestratorId]) ? orchestratorId : ''
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
   const soloUno = chatAgentIds.length <= 1 && !(chatAgentIds.length === 1 && Array.isArray(byId[chatAgentIds[0]]?.delegates) && byId[chatAgentIds[0]].delegates.length > 0)
   const [subFor, setSubFor] = useState<string | null>(null)

@@ -760,7 +760,7 @@ class QuinkiBridge {
           thinkingLevel: v.thinkingLevel,
           mode: (v as any).mode,
           agentId: (v as any).agentId,
-          orchestratorId: String((v as any).agentId || "").split(",").filter(Boolean).length > 1 ? (v as any).orchestratorId : undefined,
+          orchestratorId: (v as any).orchestratorId || undefined,
           agentOverrides: (v as any).agentOverrides,
           messageAgents: (v as any).messageAgents,
           messageThinking: (v as any).messageThinking,
@@ -1255,7 +1255,7 @@ class QuinkiBridge {
       const c = compactionByKey.get(s.key);
       return {
         key: s.key, label: s.label, agentId: s.agentId || "",
-        orchestratorId: String(s.agentId || "").split(",").filter(Boolean).length > 1 ? ((s as any).orchestratorId || "") : "",
+        orchestratorId: (s as any).orchestratorId || "",
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
         lastActivity: s.lastActivity,
         order: orderByKey.get(s.key) ?? (typeof (s as any).order === "number" ? (s as any).order : s.lastActivity),
