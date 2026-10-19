@@ -846,7 +846,9 @@ class QuinkiBridge {
             // non deve RISORGERE dal disco/meta/backup (bug scoperto 10 ott: la CLI legge il file
             // e vedeva ancora il ruolo mentre l'app, che legge la memoria, lo mostrava tolto).
             if (f === "orchestratorId") continue;
-            if ((d as any)[f] === undefined || (d as any)[f] === null) {
+            const _cur: any = (d as any)[f];
+            const _empty = _cur === undefined || _cur === null || (typeof _cur === 'object' && !Array.isArray(_cur) && Object.keys(_cur).length === 0);
+            if (_empty) {
               if (diskE && (diskE as any)[f] !== undefined && (diskE as any)[f] !== null) (d as any)[f] = (diskE as any)[f];
               else if (meta && (meta as any)[m] !== undefined && (meta as any)[m] !== null) (d as any)[f] = (meta as any)[m];
               else if (backup && (backup as any)[m] !== undefined && (backup as any)[m] !== null) (d as any)[f] = (backup as any)[m];
