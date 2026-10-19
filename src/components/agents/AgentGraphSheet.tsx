@@ -73,7 +73,7 @@ export function AgentGraphSheet(props: Props) {
     } catch {}
     try { props.onRefreshAgents?.() } catch {}
   }
-  useEffect(() => { if (!localAgents.length) reloadAgents() }, [])
+  useEffect(() => { if (!localAgents.length) reloadAgents(); reloadOrch() }, [])
 
   // Il ruolo va riletto dal motore: quando resta un solo agente il motore lo AZZERA
   // e il grafo deve smettere di mostrare l'orchestrator.
@@ -93,8 +93,8 @@ export function AgentGraphSheet(props: Props) {
 
   // Ruolo: SOLO quello scelto (ora il motore lo restituisce anche con 1 agente).
   // Niente derivazioni: senza ruolo il grafo resta senza orchestrator.
+  // Il ruolo si legge dal MOTORE (reloadOrch); la prop può essere vecchia e non deve sovrascrivere.
   const [localOrch, setLocalOrch] = useState(orchestratorId)
-  useEffect(() => { setLocalOrch(orchestratorId) }, [orchestratorId])
   const orchId = (localOrch && byId[localOrch]) ? localOrch : ''
   // "solo un agente" vale SOLO se in chat c'è un agente e NON ha sub-agent.
   const soloUno = chatAgentIds.length <= 1 && !orchId
