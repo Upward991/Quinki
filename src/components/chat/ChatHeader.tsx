@@ -612,7 +612,19 @@ export function ChatHeader(props: ChatHeaderProps) {
                 onChangeAgent={(id) => (props as any).onSetChatAgents?.([id])}
                 onSetOrchestrator={(id) => (props as any).onSetOrchestrator?.(id)}
                 onAddToChat={(id) => props.onAgentToggle(id)}
-                onSelectAgent={(id) => { setMultiSelect(true); setSelectedForRemoval(new Set([id])) }}
+                onMakeOrchestrator={(id) => {
+                  // Set-based: se non è in chat lo AGGIUNGE (mai toggle → prima spariva coder)
+                  const cur = String((props as any).session?.agentId || '').split(',').filter(Boolean)
+                  const next = cur.includes(id) ? cur : [...cur, id]
+                  if (next.length !== cur.length) (props as any).onSetChatAgents?.(next)
+                  setTimeout(() => (props as any).onSetOrchestrator?.(id), 250)
+                }}
+                onRemoveFromChat={(id) => props.onAgentToggle(id)}
+                onSelectAgent={(id) => {
+                  const cur = String((props as any).session?.agentId || '').split(',').filter(Boolean)
+                  if (!cur.includes(id)) (props as any).onSetChatAgents?.([...cur, id])
+                  setMultiSelect(true); setSelectedForRemoval(new Set([id]))
+                }}
                 onPickModel={(id) => setModelPickerFor(id)}
                 onPickThinking={(id) => setThinkingPickerFor(id)}
                 onRefreshAgents={(props as any).onRefreshAgents}

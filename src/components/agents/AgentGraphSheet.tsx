@@ -27,8 +27,9 @@ type Props = {
   onPickThinking: (id: string) => void
   onRefreshAgents?: () => void
   onSetOrchestrator: (id: string) => void
-  onAddToChat: (id: string) => void
+  onMakeOrchestrator: (id: string) => void
   onSelectAgent: (id: string) => void
+  onRemoveFromChat: (id: string) => void
   agentOverrides?: Record<string, any>
   selectMode: boolean
   picked: Set<string>
@@ -373,10 +374,16 @@ export function AgentGraphSheet(props: Props) {
           <>
             <div style={{ position: 'fixed', inset: 0, zIndex: 600 }} onClick={() => setSubMenu(null)} onContextMenu={(e) => { e.preventDefault(); setSubMenu(null) }} />
             <div style={{ position: 'fixed', left: Math.min(subMenu.x, window.innerWidth - 180), top: Math.min(subMenu.y, window.innerHeight - 240), zIndex: 601, backgroundColor: 'var(--q-bg-panel)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-modal)', border: '1px solid var(--q-border)', padding: 4, minWidth: 170 }}>
-              <div title="Only for chat agents" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', opacity: .55, cursor: 'default' }}>Set as orchestrator</div>
-              <div title="Only for chat agents" style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', color: 'var(--q-text-tertiary)', fontSize: 14, fontFamily: 'var(--font-interface)', opacity: .55, cursor: 'default' }}>Select</div>
+              {item('Set as orchestrator', 'var(--q-text)', () => {
+                try { props.onMakeOrchestrator(subMenu.id); setToast(`${byId[subMenu.id]?.name || subMenu.id} is now the orchestrator`) } catch (e: any) { alert(String(e?.message || e)) }
+                setSubMenu(null)
+              })}
+              {item('Select', 'var(--q-text)', () => {
+                try { props.onSelectAgent(subMenu.id) } catch (e: any) { alert(String(e?.message || e)) }
+                setSubMenu(null)
+              })}
               {item('Remove', 'var(--q-accent-danger)', async () => {
-                // (i sub-agent non sono agenti della chat: si rimuovono SOLO dal padre)
+                if (inChat) { try { props.onRemoveFromChat(subMenu.id) } catch (e: any) { alert(String(e?.message || e)) } setSubMenu(null); return }
                 if (!parentId) { setSubMenu(null); return }
                 const cur: string[] = Array.isArray(byId[parentId]?.delegates) ? byId[parentId].delegates : []
                 try { await rpc('updateAgent', { id: parentId, config: { delegates: cur.filter(x => x !== subMenu.id) } }); props.onRefreshAgents?.(); setToast('Sub agent removed') } catch (e: any) { alert('Remove failed: ' + (e?.message || String(e))) }
