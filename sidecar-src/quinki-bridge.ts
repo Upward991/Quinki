@@ -4778,9 +4778,19 @@ Read this file to view it.` }] };
     if (!target) return { ok: true, orchestratorId: t.root || null, agentIds: t.members.join(",") };
     if (target === t.root) return { ok: true, orchestratorId: target, agentIds: t.members.join(",") };
     const tree: Record<string, string[]> = {};
-    for (const [pid, kids] of Object.entries(t.tree)) tree[pid] = kids.filter((x) => x !== target);
+    for (const [pid, kids] of Object.entries(t.tree)) tree[pid] = [...kids];
     const oldRoot = t.root;
-    tree[target] = [...new Set([...(tree[target] || []), ...(oldRoot && oldRoot !== target ? [oldRoot] : [])])];
+    const parentOfTarget = Object.keys(tree).find((p2) => (tree[p2] || []).includes(target)) || "";
+    const kidsOfTarget = [...(tree[target] || [])].filter((k) => k !== oldRoot);
+    if (parentOfTarget) {
+      // i figli salgono di UN livello, al vecchio padre del nuovo orchestrator
+      tree[parentOfTarget] = [...new Set([
+        ...(tree[parentOfTarget] || []).filter((x) => x !== target),
+        ...kidsOfTarget.filter((k) => k !== parentOfTarget),
+      ])];
+    }
+    // il nuovo orchestrator è radice e ha come figlio il VECCHIO orchestrator
+    tree[target] = oldRoot && oldRoot !== target ? [oldRoot] : [];
     const saved = this.#saveChatTree(key, tree, target);
     this.logDebug("set-session-orchestrator", { sessionKey: key, root: saved.root, oldRoot });
     return { ok: true, orchestratorId: saved.root, agentIds: saved.members.join(",") };
@@ -4808,6 +4818,9 @@ Read this file to view it.` }] };
     }
     if (Object.keys((s as any).agentOverrides).length === 0) delete (s as any).agentOverrides;
     this.#save();
+    // PERSISTENZA: chat-meta è la fonte anche per gli override; senza questa scrittura
+    // il valore vecchio tornava al riavvio ("thinking off" fantasma che non si toglieva).
+    try { this.#writeChatMeta(key, { agentOverrides: ((s as any).agentOverrides || {}) }); this.#chatMetaCache.delete(key); } catch {}
     // === POOL SYNC: gli override vivono sul worker — il main deve allinearsi ===
     try {
       const send = (globalThis as any).__quinki_sendNotification;
