@@ -4390,6 +4390,8 @@ Read this file to view it.` }] };
   }
 
   /** Albero normalizzato { tree, root, members }. Migra le chat vecchie (agentIds+orchestratorId). */
+  #graphVersion(key: string): number { try { return Number(this.#readChatMetaFile(key)?.graphVersion || 0); } catch { return 0; } }
+
   #chatTreeOf(key: string, opts?: { complete?: boolean }): { tree: Record<string, string[]>; root: string; members: string[] } {
     const m = this.#readChatMetaFile(key) || {};
     const s = this.#entries.get(key) as any;
@@ -4470,7 +4472,8 @@ Read this file to view it.` }] };
     // UN SOLO agente = nessun ruolo di orchestrator (il ruolo esiste con una squadra)
     const roleId = ordered.length > 1 ? root : "";
     if (s) { (s as any).agentId = ordered.join(","); (s as any).orchestratorId = roleId || undefined; (s as any).delegateTree = clean; }
-    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean });
+    const _gv = Number((m as any)?.graphVersion || 0) + 1;
+    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean, graphVersion: _gv });
     try { this.#chatMetaCache.delete(key); } catch {}
     try { const send = (globalThis as any).__quinki_sendNotification; if (send) send("session_updated", { sessionKey: key, agentId: ordered.join(","), orchestratorId: root, label: s?.label }); } catch {}
     return { tree: clean, root, members: ordered };
@@ -5636,35 +5639,6 @@ Read this file to view it.` }] };
     this.logDebug("apply-mode", { sessionKey: key, mode: m, toolCount: names.length, tools: names });
   }
 
-  /**
-   * Delega — ALBERO DINAMICO (19 ott). Ogni agente deve SAPERE tutto il suo
-   * sottoalbero (per sapere cosa chiedere a chi e riportare la risposta a cascata),
-   * ma può delegare SOLO ai suoi riporti diretti (primo livello).
-   * Rigenerato a ogni prompt: se aggiungi/togli deleghe, il modello lo sa subito.
-   */
-  #delegationTreeNote(agentId: string, chatAgents: string[], isOrch: boolean, tree?: Record<string, string[]>): string {
-    const nameOf = (id: string) => { try { return this.#readAgentConfig(id)?.name || id; } catch { return id; } };
-    const lines: string[] = [];
-    const seen = new Set<string>([agentId]);
-    const walk = (id: string, depth: number, isRoot: boolean) => {
-      const declared: string[] = Array.isArray(tree?.[id]) ? tree![id].filter((d: string) => d && d !== id) : [];
-      let kids: string[] = declared;
-      if (!kids.length && isRoot && isOrch) kids = chatAgents.filter((x: string) => x && x !== id);
-      for (const k of kids) {
-        if (!k || seen.has(k)) continue;
-        seen.add(k);
-        lines.push(`${'  '.repeat(depth)}- ${nameOf(k)}${depth === 0 ? '   <- you can delegate to them' : ''}`);
-        walk(k, depth + 1, false);
-      }
-    };
-    walk(agentId, 0, true);
-    if (!lines.length) return "\n\n=== DELEGATION TREE ===\nYou have no agents to delegate to.";
-    return "\n\n=== DELEGATION TREE (your subtree, dynamic) ===\n" +
-      lines.join("\n") +
-      "\n\nYou can delegate ONLY to your direct reports (first level, marked). The deeper agents are shown so you know who does what, " +
-      "but you cannot call them directly: delegate to their parent, and the answer will come back through them. " +
-      "When you delegate, state what the final user needs, so the answer can be reported up the chain unchanged.";
-  }
 
   #modeNote(mode: string, _hasDelegateTool = false): string {
     const m = mode === "build" ? "build" : "plan";
@@ -6124,7 +6098,9 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       };
       for (const k of kids) walk(k, agentId, true, 0);
       const youRow = `- ${nameOf(agentId)} — YOU (${t.root === agentId ? "root of the chat: you receive the user's messages" : `child of ${nameOf(Object.keys(t.tree).find((p2) => (t.tree[p2] || []).includes(agentId)) || t.root)}`})`;
-      let out = `\n\n**Organization of this chat — WHO IS WHOSE PARENT (${t.members.length} agents):**\n`;
+      const gv = this.#graphVersion(key);
+      let out = `\n\n**Organization of this chat — WHO IS WHOSE PARENT (${t.members.length} agents, graph_version ${gv}):**\n`;
+      out += `_(snapshot taken when this turn started; if the graph_version returned by a tool differs, trust the tool)_\n`;
       out += youRow + "\n" + lines.join("\n");
       out += `\n\nRULES: you can delegate ONLY to the agents marked "YOU CAN DELEGATE TO THIS ONE" (your direct children).`;
       out += `\nTo reach any other agent listed above, delegate to the direct child that leads to it and ask THAT child to delegate further. When the answer comes back, it comes from your child: report it as such.`;
@@ -6467,16 +6443,19 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       description: _desc,
       promptSnippet: "delegate_to_agent: delegate a task to a specific agent in the chat",
       promptGuidelines: [
-        "When you need to delegate a task to an agent, use the delegate_to_agent tool with the agent's name and the task to perform.",
+        "When you need to delegate a task to an agent, use the delegate_to_agent tool with the agent's name (or its id) and the task to perform.",
+        "You can only call your direct children. To reach an agent deeper in the tree, ask your direct child to delegate further and to report the answer back.",
+        "The result of every delegation includes who answered, the current graph_version and the list of agents you can call: trust it over any earlier snapshot.",
         "Do not try to do the work of a specialized agent yourself. Always delegate.",
         "After receiving the response, synthesize and report it to the user.",
       ],
       parameters: Type.Object({
+        agent_id: Type.Optional(Type.String({ description: "Stable id of the agent to delegate to (preferred when known)" })),
         agent_name: Type.String({ description: "Name of the agent to delegate to (e.g. Notion, App Expert)" }),
         task: Type.String({ description: "Description of the task to assign to the agent" }),
       }),
       async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
-        const { agent_name, task } = params;
+        const { agent_name, agent_id, task } = params;
         try {
           self.logDebug("delegate-tool-call", { sessionKey, agent_name, task: task?.substring(0, 200) });
           // Trova l'agente nella sessione
@@ -6496,24 +6475,40 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             const _mine = (_t.tree[selfId] || []).filter(Boolean);
             const agentIds = (_mine.length ? _mine : (selfId === _t.root ? _t.members : []))
               .filter((id: string) => id && id !== selfId);
-          // Trova l'agente per nome (case-insensitive)
+          // === RISOLUZIONE: prima l'ID (stabile), poi il NOME con match ESATTO. ===
+          // Mai fuzzy: "App Expert" e "App Expert Custom" sono due agenti diversi.
+          const roster = agentIds.map((id: string) => {
+            let name = id, kids = 0;
+            try { name = self.#readAgentConfig(id)?.name || id; } catch {}
+            try { kids = (self.#chatTreeOf(sessionKey).tree[id] || []).length; } catch {}
+            return { id, name, canDelegate: kids > 0 };
+          });
+          const rosterText = roster.length
+            ? roster.map((r: any) => `${r.name} (id: ${r.id}${r.canDelegate ? ", can delegate further" : ""})`).join("; ")
+            : "(nobody)";
+          const structuredError = (msg: string) => JSON.stringify({
+            ok: false, error: msg,
+            you_can_delegate_to: roster,
+            graph_version: self.#graphVersion(sessionKey),
+          }, null, 2);
           let targetId: string | null = null;
-          for (const id of agentIds) {
-            try {
-              const cfg = self.#readAgentConfig(id);
-              if (cfg?.name?.toLowerCase() === agent_name.toLowerCase()) {
-                targetId = id;
-                break;
-              }
-            } catch {}
+          if (agent_id && typeof agent_id === "string") {
+            const byId = agentIds.find((id: string) => id === agent_id);
+            if (byId) targetId = byId;
+            else return { content: [{ type: "text", text: structuredError(`agent id "${agent_id}" is not available to you`) }], isError: true };
           }
           if (!targetId) {
-            // Errore UTILE: dire chi c'è davvero (con le sottodeleghe è facile sbagliare nome).
-            {
-              const available: string[] = [];
-              for (const id of agentIds) { try { const n = self.#readAgentConfig(id)?.name; if (n) available.push(n); } catch {} }
-              return { content: [{ type: "text", text: `Error: agent "${agent_name}" is not available to you. You can delegate to: ${available.length ? available.join(", ") : "(nobody)"}.` }], isError: true };
+            const needle = String(agent_name || "").trim().toLowerCase();
+            const matches = agentIds.filter((id: string) => {
+              try { return String(self.#readAgentConfig(id)?.name || "").trim().toLowerCase() === needle || id === needle; } catch { return id === needle; }
+            });
+            if (matches.length > 1) {
+              return { content: [{ type: "text", text: structuredError(`name "${agent_name}" is AMBIGUOUS: ${matches.join(", ")}. Use agent_id.`) }], isError: true };
             }
+            targetId = matches[0] || null;
+          }
+          if (!targetId) {
+            return { content: [{ type: "text", text: structuredError(`agent "${agent_name}" is not available to you. You can delegate to: ${rosterText}.`) }], isError: true };
           }
           // === INIETTA API KEY dell'agente target ===
           const agentConfig = self.#readAgentConfigFile(targetId) || { skills: [] };
@@ -6553,11 +6548,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           const delegationId = `del-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             const tempSkillTool = self.#buildSkillTool(() => tempPiRef);
             // ══ SOTTO-DELEGA: il delegato riceve il SUO delegate_to_agent ══
-            const targetFullCfg = self.#readAgentConfigFile(targetId) as any;
-            const declared = Array.isArray(targetFullCfg?.delegates) ? targetFullCfg.delegates.filter((d: string) => d && d !== targetId) : null;
-            const chatAgentsForTarget = String(sessionAgents).split(',').filter((id: string) => id && id !== targetId);
-            const targetRoster = (declared && declared.length ? declared : chatAgentsForTarget)
-              .filter((id: string) => id && id !== targetId && !chain.includes(id) && id !== selfId);
+            // (i `delegates` globali del config NON sono più una fonte: la struttura è l'albero della chat)
             let tempDelegateTool: any = null;
             {
               const _t2 = self.#chatTreeOf(sessionKey);
@@ -6672,10 +6663,11 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
                 base = agentPrompt + `\n\nWorking directory: ${tempCwd2}\nEverything you create or save belongs in that directory by default — use a different location only if the user explicitly asks for one.\n\n` + base;
               }
               // Add mode note (same as #applyMode)
-              // Delega: anche il DELEGATO conosce tutto il suo sottoalbero (dinamico).
+              // UNA SOLA FONTE: il delegato riceve la STESSA nota dell'albero (generata
+              // dall'albero della chat), mai una seconda versione scritta a mano.
               let subTreeNote = "";
               if (typeof base === "string" && base.length > 0) {
-                try { subTreeNote = self.#delegationTreeNote(targetId, chatAgentsForTarget, false, ((self.#entries.get(sessionKey) as any)?.delegateTree) || {}); base = base + subTreeNote; } catch {}
+                try { subTreeNote = self.#childrenPromptNote(sessionKey, targetId); base = base + subTreeNote; } catch {}
               }
               if (typeof base === "string" && base.length > 0 && note) {
                 const planIdx = base.indexOf("\n\nSei in MODALITÀ PIANO");
@@ -6920,7 +6912,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           if (!responseText || responseText.trim().length === 0) {
             return { content: [{ type: "text", text: `L'agente ${agent_name} non ha prodotto una risposta testuale. Potrebbe aver eseguito il task senza output testuale.` }], isError: false };
           }
-          return { content: [{ type: "text", text: responseText }], isError: false };
+          // === RISPOSTA STRUTTURATA (leggera): chi mi ha risposto, la versione del grafo
+          // e chi posso chiamare ORA. Così il modello non deve indovinare né rileggere
+          // il prompt: lo stato arriva nel punto attivo (ultimo messaggio). ===
+          const gvNow = self.#graphVersion(sessionKey);
+          const meta = `\n\n[delegation ok · answered by: ${agent_name || targetId} (${targetId}) · graph_version ${gvNow} · you can delegate to: ${rosterText}]`;
+          return { content: [{ type: "text", text: String(responseText) + meta }], isError: false };
         } catch (e: any) {
           self.logDebug("delegate-tool-error", { sessionKey, error: e?.message || String(e) });
           return { content: [{ type: "text", text: `Error during delegation to ${agent_name}: ${e?.message || String(e)}` }], isError: true };
