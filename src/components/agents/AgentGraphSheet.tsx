@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain, RefreshCw } from '../icons'
+import { Bot, Network, Plus, Maximize, MessageSquare, Cpu, Brain, RefreshCw, ChevronLeft, ChevronRight } from '../icons'
 import { useSidecarContext } from '../shared/AppShell'
 import { AgentPickerModal } from '../chat/AgentPickerModal'
 
@@ -114,6 +114,8 @@ export function AgentGraphSheet(props: Props) {
       if (ids.length) setLocalChatIds(ids)
       const __tree = ((s as any)?.delegateTree || {}) as Record<string, string[]>
       setTree(__tree)
+      setCanUndo(!!(s as any)?.graphCanUndo)
+      setCanRedo(!!(s as any)?.graphCanRedo)
       dlog('reload-orch', { sessionKey: props.sessionKey, agentId: s?.agentId, orch: s?.orchestratorId, tree: (s as any)?.delegateTree })
     } catch {} finally { refreshing.current = false }
   }
@@ -135,6 +137,8 @@ export function AgentGraphSheet(props: Props) {
   const [localOrch, setLocalOrch] = useState(orchestratorId)
   const [localChatIds, setLocalChatIds] = useState<string[]>(chatAgentIds)
   const [tree, setTree] = useState<Record<string, string[]>>(delegateTree || EMPTY_TREE)
+  const [canUndo, setCanUndo] = useState(false)
+  const [canRedo, setCanRedo] = useState(false)
   useEffect(() => { if (Array.isArray(chatAgentIds) && chatAgentIds.length) setLocalChatIds(chatAgentIds) }, [chatAgentIds])
   // FONTE VERA: l'app può avere la lista vecchia; il motore no.
   const chatIds = localChatIds.length ? localChatIds : chatAgentIds
@@ -296,6 +300,12 @@ export function AgentGraphSheet(props: Props) {
     }
   }
 
+  /** Annulla / ripristina l'ultima modifica del GRAFO (10 passi, per chat). */
+  const graphStep = async (dir: 'undo' | 'redo') => {
+    try { await rpc(dir === 'undo' ? 'graphUndo' : 'graphRedo', { sessionKey: props.sessionKey }) } catch {}
+    await Promise.all([reloadAgents(), reloadOrch()])
+  }
+
   // La conferma ORIGINALE (in ChatHeader) deve usare la rimozione con promozione dei figli.
 
   const edges: { from: TNode; to: TNode }[] = []
@@ -329,6 +339,10 @@ export function AgentGraphSheet(props: Props) {
             <span style={{ color: 'var(--q-text-tertiary)', fontSize: 12, fontFamily: 'var(--font-interface)', marginLeft: 10, whiteSpace: 'nowrap' }}>
               {laid.nodes.length} {laid.nodes.length === 1 ? 'agent' : 'agents'}
             </span>
+
+            <div style={{ width: 10, flexShrink: 0 }} />
+            <IconBtn title="Undo graph change" onClick={() => { if (canUndo) void graphStep('undo') }} style={!canUndo ? { opacity: 0.35, cursor: 'default' } : undefined}><ChevronLeft size={18} /></IconBtn>
+            <IconBtn title="Redo graph change" onClick={() => { if (canRedo) void graphStep('redo') }} style={!canRedo ? { opacity: 0.35, cursor: 'default' } : undefined}><ChevronRight size={18} /></IconBtn>
 
             <div style={{ flex: 1 }} />
             <IconBtn title="Zoom out" onClick={() => setZoom(z => Math.max(MIN_Z, z * 0.9))}><span style={{ fontSize: 16, lineHeight: 1 }}>−</span></IconBtn>
@@ -486,10 +500,10 @@ function Chip({ children, icon, onClick, picked }: any) {
   )
 }
 
-function IconBtn({ children, onClick, title }: any) {
+function IconBtn({ children, onClick, title, style }: any) {
   return (
     <button title={title} onClick={onClick}
-      style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: '1px solid transparent', background: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer' }}
+      style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)', border: '1px solid transparent', background: 'transparent', color: 'var(--q-text-secondary)', cursor: 'pointer' , ...style}}
       onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--q-hover)'; e.currentTarget.style.color = 'var(--q-text)' }}
       onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--q-text-secondary)' }}>
       {children}

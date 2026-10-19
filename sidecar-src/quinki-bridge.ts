@@ -1271,8 +1271,12 @@ class QuinkiBridge {
         ...(() => {
           try {
             const t = this.#chatTreeOf(s.key);
-            if (!t.members.length) return { agentId: "", orchestratorId: "", delegateTree: {} };
-            return { agentId: t.members.join(","), orchestratorId: t.members.length > 1 ? t.root : "", delegateTree: t.tree };
+            const _hm: any = this.#readChatMetaFile(s.key) || {};
+            const _hist: any[] = Array.isArray(_hm.graphHistory) ? _hm.graphHistory : [];
+            const _pos: number = Number.isFinite(_hm.graphPos) ? Number(_hm.graphPos) : _hist.length - 1;
+            if (!t.members.length) return { agentId: "", orchestratorId: "", delegateTree: {}, graphCanUndo: false, graphCanRedo: false };
+            return { agentId: t.members.join(","), orchestratorId: t.members.length > 1 ? t.root : "", delegateTree: t.tree,
+              graphCanUndo: _pos > 0, graphCanRedo: _pos < _hist.length - 1 };
           } catch { return {}; }
         })(),
         model: s.model, thinkingLevel: s.thinkingLevel, mode: s.mode,
@@ -4462,7 +4466,7 @@ Read this file to view it.` }] };
   }
 
   /** Scrive albero + campi derivati (agentIds/orchestratorId) in un colpo solo. */
-  #saveChatTree(key: string, treeIn: Record<string, string[]>, rootOverride?: string, membersIn?: string[]) {
+  #saveChatTree(key: string, treeIn: Record<string, string[]>, rootOverride?: string, membersIn?: string[], opts?: { history?: boolean }) {
     const m = this.#readChatMetaFile(key) || {};
     const s = this.#entries.get(key) as any;
     const members: string[] = [];
@@ -4485,7 +4489,21 @@ Read this file to view it.` }] };
     // UN SOLO agente = nessun ruolo di orchestrator (il ruolo esiste con una squadra)
     const roleId = ordered.length > 1 ? root : "";
     if (s) { (s as any).agentId = ordered.join(","); (s as any).orchestratorId = roleId || undefined; (s as any).delegateTree = clean; }
-    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean });
+    // === STORICO DEL GRAFO (10 passi, per chat): ogni modifica VERA aggiunge uno stato ===
+    const HIST_MAX = 10;
+    const _m: any = m || {};
+    let hist: any[] = Array.isArray(_m.graphHistory) ? [..._m.graphHistory] : [];
+    let pos: number = Number.isFinite(_m.graphPos) ? Number(_m.graphPos) : hist.length - 1;
+    if (opts?.history !== false) {
+      const prevTree = (_m.delegateTree && typeof _m.delegateTree === "object") ? _m.delegateTree : null;
+      const prevRoot = _m.orchestratorId || "";
+      if (prevTree && Object.keys(prevTree).length && hist.length === 0) { hist = [{ tree: prevTree, root: prevRoot, ts: Date.now() }]; pos = 0; }
+      hist = hist.slice(0, pos + 1);
+      hist.push({ tree: clean, root: roleId, ts: Date.now() });
+      if (hist.length > HIST_MAX) hist = hist.slice(hist.length - HIST_MAX);
+      pos = hist.length - 1;
+    }
+    this.#writeChatMeta(key, { agentIds: ordered.join(","), orchestratorId: roleId, delegateTree: clean, graphHistory: hist, graphPos: pos });
     try { this.#chatMetaCache.delete(key); } catch {}
     try { const send = (globalThis as any).__quinki_sendNotification; if (send) send("session_updated", { sessionKey: key, agentId: ordered.join(","), orchestratorId: root, label: s?.label }); } catch {}
     return { tree: clean, root, members: ordered };
@@ -4719,6 +4737,40 @@ Read this file to view it.` }] };
     const saved = this.#saveChatTree(key, tree, root, members.length ? members : t.members);
     this.logDebug("detach-nodes", { sessionKey: key, del, root: saved.root, members: saved.members.length });
     return { ok: true, delegateTree: saved.tree, orchestratorId: saved.root, agentIds: saved.members.join(",") };
+  }
+
+  /** Undo/Redo del GRAFO della chat (max 10 stati). Tornano agenti, ruolo e albero insieme
+   *  (sono tutti derivati). Il motore usa sempre l'albero corrente: nessun tool può
+   *  leggere uno stato vecchio.
+   */
+  #applyGraphSnapshot(key: string, snap: any, hist: any[], pos: number) {
+    const tree = (snap?.tree && typeof snap.tree === "object") ? snap.tree : {};
+    const members = Object.keys(tree);
+    if (!members.length) return { ok: false };
+    this.#saveChatTree(key, tree, snap?.root || members[0] || "", members, { history: false });
+    this.#writeChatMeta(key, { graphHistory: hist, graphPos: pos });
+    try { this.#chatMetaCache.delete(key); } catch {}
+    return { ok: true, delegateTree: tree, orchestratorId: snap?.root || "", graphPos: pos, graphCanUndo: pos > 0, graphCanRedo: pos < hist.length - 1 };
+  }
+
+  graphUndo(key: string) {
+    const m: any = this.#readChatMetaFile(key) || {};
+    const hist: any[] = Array.isArray(m.graphHistory) ? [...m.graphHistory] : [];
+    const pos: number = Number.isFinite(m.graphPos) ? Number(m.graphPos) : hist.length - 1;
+    if (pos <= 0) return { ok: false, graphCanUndo: false, graphCanRedo: hist.length > 1 };
+    const next = pos - 1;
+    this.logDebug("graph-undo", { sessionKey: key, from: pos, to: next, states: hist.length });
+    return this.#applyGraphSnapshot(key, hist[next], hist, next);
+  }
+
+  graphRedo(key: string) {
+    const m: any = this.#readChatMetaFile(key) || {};
+    const hist: any[] = Array.isArray(m.graphHistory) ? [...m.graphHistory] : [];
+    const pos: number = Number.isFinite(m.graphPos) ? Number(m.graphPos) : hist.length - 1;
+    if (pos >= hist.length - 1) return { ok: false, graphCanUndo: pos > 0, graphCanRedo: false };
+    const next = pos + 1;
+    this.logDebug("graph-redo", { sessionKey: key, from: pos, to: next, states: hist.length });
+    return this.#applyGraphSnapshot(key, hist[next], hist, next);
   }
 
   /** Attacca agenti a UN padre (atomico): li stacca da qualsiasi altro padre e li
