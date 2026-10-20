@@ -191,7 +191,7 @@ function MessageBlocks({ thinking, toolCalls, toolResults, compaction, delegatio
       {normalizeThinking(thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} />)}
 
       {/* Tool calls */}
-      {toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
+      {toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} running startedAt={Date.parse(String(timestamp)) || undefined} />)}
 
       {/* Tool results (error + success) */}
       {toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
@@ -215,7 +215,7 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
   const { isError, isStreaming, timestamp, agentName, agentModel, thinkingLevel, thinkingTranslated, onCopy, searchQuery, activeOcc } = opts
   return blocks.map((b: any, i: number, arr: any[]) => {
     if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={isStreaming && i === arr.length - 1} />
-    if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} />
+    if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} running={isStreaming && i === arr.length - 1} startedAt={Date.parse(String(timestamp)) || undefined} />
     if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
     if (b.type === 'delegation') return <DelegationBlockView key={`b-${i}`} delegation={b} timestamp={timestamp} streaming={b.streaming} onCopy={onCopy} searchQuery={searchQuery} activeOcc={activeOcc} />
     if (b.type === 'text') {
@@ -260,7 +260,7 @@ function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch
         ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, thinkingTranslated: (message as any).thinkingTranslated, onCopy, searchQuery, activeOcc })
         : <>
             {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
-            {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} />)}
+            {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} running={!!message.isStreaming && (message.toolResults?.length || 0) <= i} startedAt={Date.parse(String(message.timestamp)) || undefined} />)}
             {message.toolResults?.map((tr, i) => <ToolToggle key={`tr-${i}`} label={tr.isError ? 'Tool error' : 'Tool result'} toolName={tr.name} body={tr.output} isError={tr.isError} />)}
           </>}
 
@@ -414,9 +414,18 @@ function extractText(node: React.ReactNode): string {
 }
 
 // ── Generic toggle (thinking, tool, compaction — all same structure) ──
-function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, boldLabel, streaming }: {
+function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, boldLabel, streaming, countdownSec, startedAt }: {
   label: string; content: string; baseColor: string; baseColorRgb: string; isItalic?: boolean; boldLabel?: string; streaming?: boolean
+  countdownSec?: number; startedAt?: number
 }) {
+  const [nowTick, setNowTick] = useState(Date.now())
+  useEffect(() => {
+    if (!countdownSec) return
+    const t = setInterval(() => setNowTick(Date.now()), 500)
+    return () => clearInterval(t)
+  }, [countdownSec])
+  const remaining = countdownSec ? Math.max(0, countdownSec - Math.floor(((nowTick - (startedAt || nowTick)) / 1000))) : 0
+  const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
@@ -438,6 +447,11 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
+          {countdownSec > 0 && (
+            <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: 11.5, padding: '1px 6px', borderRadius: 999, border: `1px solid ${remaining <= 10 ? 'var(--q-accent-danger)' : 'var(--q-border)'}`, color: remaining <= 10 ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+              {mmss(remaining)}
+            </span>
+          )}
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
           {!preview && <span style={{ flex: 1 }} />}
           <button onClick={(e) => { e.stopPropagation(); try { navigator.clipboard.writeText(content) } catch {} }}
@@ -460,10 +474,27 @@ function ThinkingToggle({ content, streaming }: { content: string; streaming?: b
   return <GenericToggle label="Thinking" content={content} baseColor="var(--q-thinking)" baseColorRgb="157, 139, 217" isItalic streaming={streaming} />
 }
 
-function ToolToggle({ label, toolName, body, isError }: { label: string; toolName: string; body: string; isError: boolean }) {
+function ToolToggle({ label, toolName, body, isError, startedAt, running }: { label: string; toolName: string; body: string; isError: boolean; startedAt?: number; running?: boolean }) {
   const baseColor = isError ? 'var(--q-accent-danger)' : label === 'Tool call' ? 'var(--q-tool-call)' : 'var(--q-tool-result)'
   const baseColorRgb = isError ? '217, 107, 107' : label === 'Tool call' ? '210, 153, 34' : '107, 196, 109'
-  return <GenericToggle label={label} boldLabel={toolName} content={body} baseColor={baseColor} baseColorRgb={baseColorRgb} />
+  // TIME OUT di QUALSIASI tool (timeout in secondi, timeoutMs, timeout_ms, timeoutSeconds)
+  const timeoutSec = (() => {
+    try {
+      const j = typeof body === 'string' ? JSON.parse(body) : body
+      if (!j || typeof j !== 'object') return 0
+      const cand = [j.timeout, j.timeoutSeconds, j.timeout_seconds]
+      const secs = cand.map((v: any) => Number(v)).find((v: number) => Number.isFinite(v) && v > 0)
+      if (secs) return secs
+      const ms = Number(j.timeoutMs ?? j.timeout_ms)
+      if (Number.isFinite(ms) && ms > 0) return Math.round(ms / 1000)
+      return 0
+    } catch {
+      const m = String(body || '').match(/"timeout(?:_?m?s|Seconds)?"\s*:\s*(\d+)/i)
+      return m ? Number(m[1]) : 0
+    }
+  })()
+  return <GenericToggle label={label} boldLabel={toolName} content={body} baseColor={baseColor} baseColorRgb={baseColorRgb}
+    countdownSec={running && timeoutSec > 0 ? timeoutSec : 0} startedAt={startedAt} />
 }
 
 function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolean }) {
