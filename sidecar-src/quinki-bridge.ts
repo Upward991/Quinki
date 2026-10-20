@@ -5485,6 +5485,18 @@ Read this file to view it.` }] };
         if (!has('market')) {
           try { const t = this.#buildMarketTool(); if (t) keep.push(t); } catch {}
         }
+        // TOOL DI GESTIONE: assegnati/disassegnati dalla tab Agents a sessione viva
+        try {
+          const mg = this.#manageToolsFor(sk, agentId || "");
+          for (const t of mg) {
+            const nm = String(t?.name || "");
+            if (wants(nm) && !has(nm)) keep.push(t);
+            else if (!wants(nm) && has(nm)) {
+              const idx = keep.findIndex((x: any) => x?.name === nm);
+              if (idx >= 0) keep.splice(idx, 1);
+            }
+          }
+        } catch {}
         if (wants('screenshot') && !has('screenshot')) {
           try { const st = this.#buildScreenshotTool(sk); if (st) keep.push(st); } catch {}
         }
