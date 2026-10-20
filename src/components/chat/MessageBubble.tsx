@@ -436,7 +436,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
     if (!startedAt) return
     const e2 = Math.floor((nowTick - startedAt) / 1000)
     const raw = countdownSec ? countdownSec - e2 : -e2
-    const val = raw < 0 ? '+' + (() => { const t = -raw; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; const two = (n: number) => String(n).padStart(2, '0'); return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}` })() : (() => { const t = raw; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; const two = (n: number) => String(n).padStart(2, '0'); return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}` })()
+    const val = raw < 0 ? (() => { const t = -raw; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; const two = (n: number) => String(n).padStart(2, '0'); return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}` })() : (() => { const t = raw; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; const two = (n: number) => String(n).padStart(2, '0'); return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}` })()
     if (val && val !== frozen) setFrozen(val)
   }, [running, startedAt, countdownSec])
   const mmss = (t: number) => {
@@ -467,7 +467,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
           {(running || !!frozen) && (
             <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 400, marginLeft: 2, color, opacity: 1, flexShrink: 0, whiteSpace: 'nowrap' }}>
-              {running ? (overrun > 0 ? '+' + mmss(overrun) : mmss(remaining)) : frozen}
+              {running ? (overrun > 0 ? mmss(overrun) : mmss(remaining)) : frozen}
             </span>
           )}
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}

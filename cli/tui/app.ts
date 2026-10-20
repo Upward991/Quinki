@@ -295,6 +295,9 @@ class ToggleBlock {
   body: string;
   italic: boolean;
   timerEndsAt = 0;   // >0 = countdown attivo (timeout di un tool call)
+  timerStartedAt = 0; // inizio (per il tempo trascorso senza timeout)
+  frozenText = "";    // valore congelato quando il tool è finito
+  isToolCall = false; // SOLO i blocchi "Tool call" hanno il timer
   open = false;
   selected = false;
   children: any[] = []; // nested content: {t:"text",v:string} | {t:"toggle",v:ToggleBlock}
@@ -316,19 +319,18 @@ class ToggleBlock {
     // with the first letter of the writing and the right edge matches the text.
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
-    const _endsAt = this.timerEndsAt || ACTIVE_TIMERS.get(this.boldName) || 0;
-    const _started = ACTIVE_START.get(this.boldName) || 0;
-    const _frozen = (!_endsAt && !_started) ? FROZEN_TIMER.get(this.boldName) : undefined;
-    if (_frozen) {
-      head += " " + fg(col, _frozen);
-    } else if (_endsAt || _started) {
-      const rawLeft = _endsAt ? Math.round((_endsAt - Date.now()) / 1000) : -Math.round((Date.now() - _started) / 1000);
-      const over = rawLeft < 0 ? -rawLeft : 0;
-      const left = Math.abs(rawLeft);
-      const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), sec = left % 60;
-      const two = (n: number) => String(n).padStart(2, "0");
-      const label = h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`;
-      head += " " + fg(col, over > 0 ? "+" + label : label);
+    if (this.isToolCall) {
+      const endsAt = this.timerEndsAt;
+      const started = this.timerStartedAt;
+      if (this.frozenText) {
+        head += " " + fg(col, this.frozenText);
+      } else if (endsAt || started) {
+        const rawLeft = endsAt ? Math.round((endsAt - Date.now()) / 1000) : -Math.round((Date.now() - started) / 1000);
+        const t = Math.abs(rawLeft);
+        const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+        const two = (n: number) => String(n).padStart(2, "0");
+        head += " " + fg(col, h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`);
+      }
     }
     // 6 ott: while you navigate this toggle (Ctrl+Alt+arrows) it INVERTS:
     // background = its own color, text = the CLI background. Each toggle has
@@ -4344,31 +4346,34 @@ const readProvidersCfg = (): any => {
           try { body = typeof p.toolArgs === "string" ? p.toolArgs : JSON.stringify(p.toolArgs ?? {}, null, 0); } catch {}
           sealWritingFooter();
           assistant = null; assistantText = "";
-          ACTIVE_START.set(nm, Date.now());
           const sec = timeoutSecOf(body);
-          if (sec > 0) ACTIVE_TIMERS.set(nm, Date.now() + sec * 1000);
-          startTimerTick();
-          // DEDUPE: se l'ultimo blocco è già una tool call con lo stesso nome, aggiorna gli args
           const lastTop: any = (toggles.length ? toggles[toggles.length - 1] : null);
-          if (lastTop && lastTop.boldName === nm && !String(lastTop.label).includes("result")) {
-            lastTop.setBody(body || lastTop.body);
+          let tg: any;
+          if (lastTop && lastTop.isToolCall && lastTop.boldName === nm && !lastTop.frozenText) {
+            tg = lastTop;
+            tg.setBody(body || tg.body);
           } else {
-            const tg = new ToggleBlock({ label: "Tool call", boldName: nm, color: C.toolCall, body });
+            tg = new ToggleBlock({ label: "Tool call", boldName: nm, color: C.toolCall, body });
+            tg.isToolCall = true;
             pushBlock(registerToggle(tg));
           }
+          if (!tg.timerStartedAt) tg.timerStartedAt = Date.now();
+          if (sec > 0) tg.timerEndsAt = tg.timerStartedAt + sec * 1000;
+          startTimerTick();
           scrollToEnd();
           ui.requestRender();
         } catch {}
       } else if (method === "tool_result") {
         try {
           const _n = String(p.toolName || "tool");
-          const _end = ACTIVE_TIMERS.get(_n); const _st = ACTIVE_START.get(_n);
-          const _left = _end ? Math.round((_end - Date.now()) / 1000) : (_st ? -Math.round((Date.now() - _st) / 1000) : 0);
-          const _t = Math.abs(_left); const _h = Math.floor(_t / 3600), _m = Math.floor((_t % 3600) / 60), _s = _t % 60;
-          const _two = (n: number) => String(n).padStart(2, "0");
-          const _lbl = _h > 0 ? `${_h}:${_two(_m)}:${_two(_s)}` : `${_two(_m)}:${_two(_s)}`;
-          FROZEN_TIMER.set(_n, _left < 0 ? "+" + _lbl : _lbl);
-          ACTIVE_TIMERS.delete(_n); ACTIVE_START.delete(_n);
+          const _tc: any = [...toggles].reverse().find((t: any) => t.isToolCall && t.boldName === _n && !t.frozenText);
+          if (_tc && (_tc.timerEndsAt || _tc.timerStartedAt)) {
+            const _raw = _tc.timerEndsAt ? Math.round((_tc.timerEndsAt - Date.now()) / 1000) : -Math.round((Date.now() - _tc.timerStartedAt) / 1000);
+            const _t = Math.abs(_raw); const _h = Math.floor(_t / 3600), _m = Math.floor((_t % 3600) / 60), _s = _t % 60;
+            const _two = (n: number) => String(n).padStart(2, "0");
+            _tc.frozenText = _h > 0 ? `${_h}:${_two(_m)}:${_two(_s)}` : `${_two(_m)}:${_two(_s)}`;
+            _tc.timerEndsAt = 0; _tc.timerStartedAt = 0;
+          }
         } catch {}
         // The delegate's tool result means that delegation is over: close its
         // toggle automatically, exactly like a thinking toggle at message end.
