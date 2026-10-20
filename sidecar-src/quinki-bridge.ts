@@ -5823,6 +5823,20 @@ Read this file to view it.` }] };
         if (cut >= 0) base = base.substring(0, cut);
         base = base + note;
       }
+      // === I TUOI TOOL (autorevole, generato QUI ad ogni turno) ===
+      // Gli agenti andavano a leggere i file/config per capire che tool avessero: questa
+      // sezione lo rende inutile e sbagliato. Sempre presente, per ogni agente, senza prompt.
+      try {
+        if (typeof base === "string" && base.length > 0) {
+          const list = (names || []).slice().sort();
+          if (list.length) {
+            base += `\n\n**Your active tools (authoritative — generated from THIS running session, ${list.length}):**\n`;
+            base += list.join(", ");
+            base += `\n\nThis list is the single source of truth for what you can call right now.`;
+            base += `\nNever inspect app files, configs, logs or the codebase to discover your tools, skills or permissions: this list IS the answer. If a tool is not listed here, you do not have it in this session.`;
+          }
+        }
+      } catch {}
       if (typeof base === "string" && base.length > 0) {
         quinkiSetSystemPrompt((pi as any).agent, base);
       }
@@ -6363,7 +6377,14 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     // "leggeva la pagina" quando gli si chiedeva di leggere un FILE.
     // Qui si prenotano i nomi core: un tool MCP con lo stesso nome viene rinominato
     // (`read` → `read_1`, `grep` → `grep_1`, ...).
-    const used = new Set<string>(["skill", "delegate_to_agent", "schedule_task"]);
+    const used = new Set<string>([
+      // I tool NATIVI hanno la precedenza: un MCP con lo stesso nome viene rinominato
+      // (read -> read_1). Senza questo, l'agente vedeva la versione MCP di `read` e
+      // non usava la nostra (bug segnalato il 20 ott).
+      "read","write","edit","bash","bash_readonly","grep","find","ls","skill","market",
+      "delegate_to_agent","schedule_task","cancel_schedule","getTaskStatus","getTaskExecuted",
+      "readHandoff","screenshot","agents","chat","skills","mcp","models_list",
+    ]);
     for (const sid of ids) {
       const server = readMcpServers().find((s: any) => s.id === sid);
       if (!server) {
