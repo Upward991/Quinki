@@ -384,6 +384,20 @@ function quinkiSetSystemPrompt(agent: any, text: string): void {
 //   • #debugLog* → il log diagnostico (buffer in memoria + flush periodico su file).
 // =============================================================================
 /** true se `root` compare come figlio (una radice non ha padre). */
+/** Timeout in secondi dall'input JSON di un tool (timeout / timeoutMs / timeoutSeconds). */
+function timeoutSecOfText(txt: string): number {
+  try {
+    const j: any = JSON.parse(txt);
+    const v = [j?.timeout, j?.timeoutSeconds, j?.timeout_seconds].map(Number).find((x: number) => Number.isFinite(x) && x > 0);
+    if (v) return v;
+    const ms = Number(j?.timeoutMs ?? j?.timeout_ms);
+    return Number.isFinite(ms) && ms > 0 ? Math.round(ms / 1000) : 0;
+  } catch {
+    const m = String(txt || "").match(/"timeout(?:_?m?s|Seconds)?"\s*:\s*(\d+)/i);
+    return m ? Number(m[1]) : 0;
+  }
+}
+
 function seenGuard(tree: Record<string, string[]>, root: string): boolean {
   for (const pid of Object.keys(tree)) if (pid !== root && (tree[pid] || []).includes(root)) return true;
   return false;
@@ -463,6 +477,7 @@ class QuinkiBridge {
   #toolBusy = new Set<string>();
   /** Timer dei tool call in esecuzione: sessionKey → (toolName → {startedAt, timeoutSec}) */
   #toolTimers = new Map<string, Map<string, { startedAt: number; timeoutSec: number }>>();
+  #toolTimerStart = new Map<string, { name: string; at: number; sec: number }>();
   #lastEffectiveCwd = new Map<string, string>();  // ultimo effectiveCwd per sessione (per delega)
   #skillsMtime = new Map<string, number>();  // mtime .pi/skills/ al session-create (auto-reload skill, history preservata)
   // === A3: Notifiche — read-state per chat + log notifiche ===
@@ -4575,11 +4590,25 @@ Read this file to view it.` }] };
   /** Tool call in esecuzione con timeout: { nome: {startedAt, timeoutSec} }.
    *  Serve alla CLI (e alla UI) per mostrare il countdown anche dopo un refresh. */
   getToolTimers(key: string): Record<string, { startedAt: number; timeoutSec: number }> {
-    const m = this.#toolTimers.get(key);
-    if (!m) return {};
-    const out: any = {};
-    for (const [k, v] of m) out[k] = v;
-    return out;
+    // Derivato dallo STATO VIVO: ultima tool call senza risultato con timeout.
+    // Il primo istante in cui la vediamo diventa lo start (poi non si sposta più).
+    try {
+      const buf: any = this.#streamingBuffers.get(key);
+      if (!buf) { this.#toolTimerStart.delete(key); return {}; }
+      const calls: any[] = buf.toolCalls || [];
+      const results: any[] = buf.toolResults || [];
+      if (calls.length <= results.length) { this.#toolTimerStart.delete(key); return {}; }
+      const c = calls[calls.length - 1];
+      const raw = c?.args ?? c?.input ?? "";
+      const txt = typeof raw === "string" ? raw : JSON.stringify(raw);
+      const sec = timeoutSecOfText(txt);
+      if (!sec) return {};
+      const name = String(c?.name || c?.toolName || "tool");
+      const prev = this.#toolTimerStart.get(key);
+      const startedAt = prev && prev.name === name && prev.sec === sec ? prev.at : Date.now();
+      this.#toolTimerStart.set(key, { name, at: startedAt, sec });
+      return { [name]: { startedAt, timeoutSec: sec } };
+    } catch { return {}; }
   }
 
   getStreamingSnapshot(key: string): any | null {
