@@ -398,6 +398,16 @@ function timeoutSecOfText(txt: string): number {
   }
 }
 
+/** Identifica il BUILD in esecuzione: mtime del binario. Se cambia, i tool della
+ *  sessione vanno riallineati (nuovi tool nel codice non compaiono da soli). */
+function currentBuildHash(): string {
+  try {
+    const p = process.execPath || "";
+    const st = require("node:fs").statSync(p);
+    return String(Math.round(st.mtimeMs));
+  } catch { return "?"; }
+}
+
 function seenGuard(tree: Record<string, string[]>, root: string): boolean {
   for (const pid of Object.keys(tree)) if (pid !== root && (tree[pid] || []).includes(root)) return true;
   return false;
@@ -1967,6 +1977,7 @@ class QuinkiBridge {
    * perderebbe il nome.
    */
   create(key: string, label: string): SessionEntry {
+    // le sessioni nuove nascono col build corrente (niente refresh inutile al primo invio)
     const existing = this.#entries.get(key);
     if (existing) return existing;
     // POOL FIX: se la sessione esiste nel registry (file), il worker deve EREDITARE
@@ -2034,6 +2045,7 @@ class QuinkiBridge {
       ...(filePrefs?.compactionAuto !== undefined ? { compactionAuto: filePrefs.compactionAuto } : {}),
       ...(filePrefs?.compactionThreshold !== undefined ? { compactionThreshold: filePrefs.compactionThreshold } : {}),
     };
+    try { (s as any).builtWith = currentBuildHash(); } catch {}
     this.#entries.set(key, s);
     this.#save();
     this.logDebug("session-create", { sessionKey: key, inheritedOrder: fileOrder ?? "(none)", order: s.order, label: s.label });
@@ -7611,6 +7623,17 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     // fallito: il prossimo send rileva comunque il cambio e aggiorna.
     try {
       if (pi) {
+        // BUILD CHANGED? → riallinea i tool della sessione viva (NON ricrea: la chat resta)
+        try {
+          const _bh = currentBuildHash();
+          const _e: any = this.#entries.get(sk);
+          if (_e && _e.builtWith && _e.builtWith !== _bh) {
+            this.#mcpSig.set(sk, "__build_changed__");
+            this.#refreshSessionTools(sk);
+            this.logDebug("session-tools-build-refresh", { sessionKey: sk, from: _e.builtWith, to: _bh });
+          }
+          if (_e) _e.builtWith = _bh;
+        } catch {}
         const refreshed = await this.#maybeRefreshMcp(sk, pi);
         if (refreshed) {
           // La sessione è stata disposta dal refresh — la ricrea sotto (if (!pi))
