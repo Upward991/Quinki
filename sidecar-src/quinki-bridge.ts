@@ -45,6 +45,7 @@ import { homedir } from "node:os";
 import { execSync } from "node:child_process";
 import { Type } from "typebox";
 import { defineTool } from "./vendor/@earendil-works/pi-coding-agent/dist/index.js";
+import { buildManageTools, type ManageCtx } from "./manage-tools";
 import {
   readMcpServers,
   StdioMcpClient,
@@ -4768,6 +4769,12 @@ Read this file to view it.` }] };
       let tools: any[] = Array.isArray(pi._customTools) ? [...pi._customTools] : [];
       tools = tools.filter((t: any) => t?.name !== "delegate_to_agent");
       if (wantsIt) { const t = this.#buildDelegateTool(key, { selfAgentId: agentId }); if (t) tools.push(t); }
+      // tool di gestione: riallineati al config (aggiunti/rimossi)
+      const mg = this.#manageToolsFor(key, agentId);
+      const mgNames = new Set(mg.map((t: any) => t.name));
+      tools = tools.filter((t: any) => !mgNames.has(t?.name));
+      const cfgTools = new Set<string>((Array.isArray(cfg?.tools) ? cfg.tools : []).map(String));
+      for (const t of mg) if (cfgTools.has(t.name)) tools.push(t);
       pi._customTools = tools;
       pi._refreshToolRegistry?.();
       this.logDebug("session-tools-refreshed", { sessionKey: key, agentId, delegate: wantsIt });
@@ -5453,7 +5460,7 @@ Read this file to view it.` }] };
       }
       if (this.#mcpSig.get(sk) !== idsNow) {
         const mcpTools = await this.#buildMcpTools(sk, agentId);
-        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || t?.name === 'cancel_schedule' || t?.name === 'getTaskStatus' || t?.name === 'getTaskExecuted' || t?.name === 'readHandoff' || t?.name === 'screenshot' || t?.name === 'market');
+        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || String(t?.name||'').match(/^(agent_|chat_|skill_|mcp_|models_list)/) || t?.name === 'cancel_schedule' || t?.name === 'getTaskStatus' || t?.name === 'getTaskExecuted' || t?.name === 'readHandoff' || t?.name === 'screenshot' || t?.name === 'market');
         // === Re-registra TUTTI i custom tool che l'agente ha nel config ma che NON sono
         // ancora nel registry della sessione viva (assegnazione mid-session, come gli MCP):
         // delegate_to_agent, schedule_task, task tools, screenshot, market ===
@@ -6376,6 +6383,38 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   }
 
   // ── MCP custom tools (registrate in createAgentSession) ──
+  /** Tool di GESTIONE (agenti, albero della chat, skill, MCP): agiscono SEMPRE sulla chat
+   *  corrente. Registrati solo per gli agenti che li hanno nel config. */
+  #manageToolsFor(sk: string, agentId: string): any[] {
+    try {
+      const ctx: ManageCtx = {
+        agentDir: this.#agentDir,
+        sessionKey: sk,
+        callerAgentId: agentId,
+        chatTree: () => this.#chatTreeOf(sk),
+        overrides: () => this.#overridesOf(sk),
+        graphVersion: () => this.#graphVersion(sk),
+        chatAdd: (parentId, ids) => this.attachToParent(sk, parentId, ids),
+        chatRemove: (ids) => this.detachNodes(sk, ids),
+        chatSetOrchestrator: (id) => this.setSessionOrchestrator(sk, id),
+        chatSetOverride: (aid, model, thinking) => this.setAgentOverride(sk, aid, model === undefined ? "__skip__" : model, thinking === undefined ? "__skip__" : thinking),
+        graphUndo: () => this.graphUndo(sk),
+        graphRedo: () => this.graphRedo(sk),
+        chatCreate: (label, ids) => {
+          const key = `quinki-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          this.create(key, label);
+          this.setChatAgents(key, ids.join(","));
+          return key;
+        },
+        log: (tag, data) => this.logDebug(tag, { sessionKey: sk, ...data }),
+      };
+      return buildManageTools(ctx);
+    } catch (e: any) {
+      this.logDebug("manage-tools-error", { sessionKey: sk, error: String(e?.message || e) });
+      return [];
+    }
+  }
+
   #buildMarketTool(): any {
     const self = this;
     return defineTool({
@@ -6388,13 +6427,23 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
         query: Type.Optional(Type.String({ description: "Search text (for action='search')" })),
         category: Type.Optional(Type.String({ description: "Package category: tabs | agents | skills | mcp | themes (for search/list)" })),
         id: Type.Optional(Type.String({ description: "Package id to install (for action='install')" })),
+        source: Type.Optional(Type.String({ description: "Install directly from a link: market:<id>, GitHub repo/tree/file URL, raw URL, gist, MCP JSON" })),
+        attach_to: Type.Optional(Type.String({ description: "Agent id to attach the installed skill/MCP to" })),
+        on_conflict: Type.Optional(Type.Union([Type.Literal("rename"), Type.Literal("overwrite"), Type.Literal("skip")])),
       }),
       async execute(toolCallId: string, params: any, signal: any, onUpdate: any, ctx: any): Promise<any> {
         const action = params?.action;
         const query = params?.query;
         const category = params?.category;
         const id = params?.id;
-        const cat: any[] = (globalThis as any).__quinki_market_catalog || []
+        let cat: any[] = (globalThis as any).__quinki_market_catalog || []
+        if (!cat.length) {
+          // Il catalogo in memoria lo riempie la UI: senza UI (CLI) va scaricato.
+          try {
+            const r = await fetch("https://raw.githubusercontent.com/Upward991/quinki-market/main/catalog.json")
+            if (r.ok) { const j: any = await r.json(); cat = Array.isArray(j) ? j : (j.items || j.packages || []) }
+          } catch {}
+        }
         try {
           if (action === "search") {
             const q = String(query || "").toLowerCase()
@@ -6408,6 +6457,17 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             return { content: [{ type: "text", text: "Packages (" + res.length + "):\n" + res.map((i: any) => "- " + i.id + " [" + (i.category || "?") + "] " + (i.name || i.id)).join("\n") }] };
           }
           if (action === "install") {
+            // Nuovo (20 ott): install da LINK, non solo per id.
+            const src = String((params as any).source || "").trim()
+            if (src) {
+              const kid = String((params as any).category || "").toLowerCase()
+              const tools = self.#manageToolsFor(sk, agentId || "")
+              const name = kid === "agents" ? "agent_install" : (kid === "mcp" ? "mcp_install" : "skill_install")
+              const t = tools.find((x: any) => x.name === name)
+              if (!t) return { content: [{ type: "text", text: `Install tool ${name} is not available in this session.` }], isError: true }
+              const res = await t.execute("", { source: src, attach_to: (params as any).attach_to, on_conflict: (params as any).on_conflict }, null, null, {})
+              return res
+            }
             const found = cat.find((i: any) => String(i.id) === String(id || ""))
             if (!found) return { content: [{ type: "text", text: "Package not found: " + String(id || "") + ". Use market search <query> to find it." }] };
             try {
@@ -6695,7 +6755,16 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             agentDir: self.#agentDir,
             sessionManager: tempSm,
             resourceLoader: tempLoader,
-            customTools: [tempSkillTool, tempDelegateTool].filter(Boolean) as any[],
+            customTools: [
+              tempSkillTool,
+              tempDelegateTool,
+              ...(() => {
+                try {
+                  const cfgTools = new Set<string>(((self.#readAgentConfigFile(targetId) as any)?.tools || []).map(String));
+                  return self.#manageToolsFor(sessionKey, targetId).filter((t: any) => cfgTools.has(t.name));
+                } catch { return [] as any[]; }
+              })(),
+            ].filter(Boolean) as any[],
           });
           const tempPi = tempResult.session;
           tempPiRef = tempPi;
@@ -7551,6 +7620,12 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       // Always register skill tool (so agents can list/search/load skills)
       const skillTool = this.#buildSkillTool(() => this.#active.get(sk));
       if (skillTool) customTools.push(skillTool);
+      // TOOL DI GESTIONE: solo quelli abilitati nel config dell'agente corrente
+      try {
+        const _mt = this.#manageToolsFor(sk, resolvedAgentId || "");
+        const _wants = (n: string) => Array.isArray((this.#readAgentConfigFile(resolvedAgentId || "") as any)?.tools) && ((this.#readAgentConfigFile(resolvedAgentId || "") as any).tools as string[]).includes(n);
+        for (const t of _mt) if (_wants(t.name)) customTools.push(t);
+      } catch {}
       // market tool: gli agenti possono usare il Quinki Market (skill quinki-market)
       try {
         const marketTool = this.#buildMarketTool();
