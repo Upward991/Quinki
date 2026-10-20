@@ -528,7 +528,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         { name: "quinki_grep", description: "Search file contents", readOnly: true },
         { name: "quinki_find", description: "Find files by name/pattern", readOnly: true },
         { name: "quinki_ls", description: "List directory contents", readOnly: true },
-        { name: "skill", description: "Load skills on-demand", readOnly: true },
+        { name: "quinki_skill", description: "Load skills on-demand", readOnly: true },
         { name: "quinki_delegate", description: "Delegate a task to another agent in the chat (for orchestrators/coordinators only)", readOnly: true },
         { name: "quinki_schedule", description: "Schedule an autonomous task to run later or on a recurring basis (once/daily/weekly/monthly)", readOnly: true },
         { name: "quinki_cancel_schedule", description: "Cancel/delete a scheduled task by its ID (the user asks to stop a previously scheduled task)", readOnly: true },
