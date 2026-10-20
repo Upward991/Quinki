@@ -510,11 +510,20 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
       try { fs.writeFileSync(skill.path, p.content || "", "utf8"); return { success: true }; } catch { return { success: false }; }
     },
     listTools: async () => ({
+      // WRITE sopra, READ sotto (richiesta utente 20 ott)
       tools: [
-        { name: "read", description: "Read files", readOnly: true },
+
+        // ── WRITE ──
         { name: "write", description: "Write/create files", readOnly: false },
         { name: "edit", description: "Edit existing files", readOnly: false },
         { name: "bash", description: "Execute shell commands", readOnly: false },
+        { name: "agents", description: "Manage agents: list / get / create / update / set_prompt / duplicate / delete / install from a link", readOnly: false },
+        { name: "chat", description: "Manage THIS chat's agent tree: read, add, remove, set orchestrator, per-chat model/thinking, undo/redo, create chat", readOnly: false },
+        { name: "skills", description: "Manage skills: list / create / update / delete / attach / detach / install from a link", readOnly: false },
+        { name: "mcp", description: "Manage MCP servers: list / add / remove / attach / detach / install from a link", readOnly: false },
+
+        // ── READ ──
+        { name: "read", description: "Read files", readOnly: true },
         { name: "bash_readonly", description: "Execute read-only shell commands (no writes, no modifications)", readOnly: true },
         { name: "grep", description: "Search file contents", readOnly: true },
         { name: "find", description: "Find files by name/pattern", readOnly: true },
@@ -528,11 +537,6 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         { name: "readHandoff", description: "Read the handoff memory of this session's tasks", readOnly: true },
         { name: "screenshot", description: "Capture a screenshot of the Quinki app window (saved as PNG — the agent can read it to see the UI)", readOnly: true },
         { name: "market", description: "Use the Quinki Market: browse the catalog, search community items, install/uninstall packages and manage publishing", readOnly: true },
-        // === TOOL DI GESTIONE (20 ott): 4 gruppi + lista modelli ===
-        { name: "agents", description: "Manage agents: list / get / create / update / set_prompt / duplicate / delete / install from a link", readOnly: false },
-        { name: "chat", description: "Manage THIS chat's agent tree: read, add, remove, set orchestrator, per-chat model/thinking, undo/redo, create chat", readOnly: false },
-        { name: "skills", description: "Manage skills: list / create / update / delete / attach / detach / install from a link", readOnly: false },
-        { name: "mcp", description: "Manage MCP servers: list / add / remove / attach / detach / install from a link", readOnly: false },
         { name: "models_list", description: "List available models (id + provider) to choose real ids", readOnly: true },
       ],
     }),

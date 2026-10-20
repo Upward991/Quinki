@@ -831,8 +831,17 @@ export function AgentsPanel(props) {
         React.createElement('div', { id: 'sec-tools' }, Section({ icon: Wrench, title: `Tool (${tools.length})`, children: [
           SearchBar({ placeholder: 'Search tool...', value: searchTools, onChange: setSearchTools }),
           React.createElement('div', { style: { height: '8px' } }),
-          React.createElement('div', { style: { maxHeight: '55vh', overflowY: 'auto' }, children:
-              filteredTools.map(tool => {
+          React.createElement('div', { style: { maxHeight: '55vh', overflowY: 'auto' }, children: [
+            // WRITE sopra, READ sotto (richiesta utente 20 ott)
+            ...['write', 'read'].flatMap((kind) => {
+              const list = filteredTools.filter((t: any) => (kind === 'read' ? t.readOnly : !t.readOnly));
+              if (!list.length) return [];
+              const header = React.createElement('div', {
+                key: 'h-' + kind,
+                style: { color: 'var(--q-text-tertiary)', fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', fontFamily: 'var(--font-interface)', padding: '4px 2px 6px' },
+                children: `${kind === 'read' ? 'Read' : 'Write'} (${list.length})`,
+              });
+              const rows = list.map((tool: any) => {
                 const usingAgents = agents.filter(a => a.tools.some(t => t.name === tool.name));
                 return React.createElement(SkillRow, {
                   key: tool.name,
@@ -844,13 +853,15 @@ export function AgentsPanel(props) {
                   badgeColor: tool.readOnly ? 'var(--q-accent-success)' : 'var(--q-accent-danger)',
                   isExpanded: expandedSkillName === tool.name,
                   onToggle: () => setExpandedSkillName(expandedSkillName === tool.name ? null : tool.name),
-                  onAddAgent: () => setAddItemsModal({ title: `Add agent to ${tool.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) + (a.systemPrompt.length > 80 ? '...' : '') : a.id })), initialSelected: agents.filter(a => (a.tools||[]).some(t => (t.name||t) === tool.name)).map(a => a.name), onConfirm: (selected) => doAddAgentsToTool(tool.name, selected) }),
-                  onRemoveAgent: (agentName) => setRemoveTagState({ type: 'agent', name: agentName, agent: tool.name }),
-                  onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: tool.name })
+                  onAddAgent: () => setAddItemsModal({ title: `Add agent to ${tool.name}`, items: agents.map(a => ({ name: a.name, description: a.systemPrompt ? a.systemPrompt.substring(0, 80) : '' })) }),
+                  onRemoveAgent: (agentName: string) => setRemoveTagState({ type: 'agent', name: agentName, agent: tool.name }),
+                  onRemoveAllAgents: () => setRemoveAllState({ type: 'agents', agentName: tool.name }),
                 });
-              })
-            })
-          ]})),
+              });
+              return [header, ...rows];
+            }),
+          ]}),
+        ]})),
 
         // === Section: Plan mode ===
         React.createElement('div', { id: 'sec-plan' }, Section({ icon: Shield, title: 'Plan mode', children: [
