@@ -448,7 +448,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
           {countdownSec > 0 && (
-            <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: 11.5, padding: '1px 6px', borderRadius: 999, border: `1px solid ${remaining <= 10 ? 'var(--q-accent-danger)' : 'var(--q-border)'}`, color: remaining <= 10 ? 'var(--q-accent-danger)' : 'var(--q-text-tertiary)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+            <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: 11.5, fontWeight: 400, padding: '1px 6px', borderRadius: 999, border: `1px solid rgba(${baseColorRgb}, 0.45)`, color: baseColor, flexShrink: 0, whiteSpace: 'nowrap' }}>
               {mmss(remaining)}
             </span>
           )}
