@@ -6390,14 +6390,13 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
         for (const t of list) {
           const rawName = typeof t?.name === "string" && t.name ? t.name : "";
           if (!rawName) continue;
-          // COLLISIONE (con un nativo o con un tool già preso da un altro server):
-          // niente più `nome_1` che non dice nulla — si mette il NAMESPACE del server:
-          //   notion__search   ·   other__search
-          // Primo che arriva tiene il nome corto, gli altri prendono il prefisso.
-          let name = rawName;
-          if (used.has(rawName)) name = `${sid}__${rawName}`;
+          // SEMPRE namespaced: i tool MCP si chiamano `mcp__<server>__<tool>`.
+          // Così (a) non possono MAI rubare un nome nativo o di un altro server,
+          // (b) si vede subito da dove viene il tool.
+          const ns = sid.replace(/[^a-zA-Z0-9_-]/g, "-");
+          let name = `mcp__${ns}__${rawName}`;
           let i = 2;
-          while (used.has(name)) name = `${sid}__${rawName}_${i++}`;
+          while (used.has(name)) name = `mcp__${ns}__${rawName}_${i++}`;
           used.add(name);
           // il nome FINALE è quello da attivare: se è stato rinominato per collisione,
           // attivare `rawName` accenderebbe il tool SBAGLIATO (il nostro)
