@@ -3964,7 +3964,6 @@ const readProvidersCfg = (): any => {
             const _ends = Date.now() + toSec * 1000;
             _tc.timerEndsAt = _ends;
             ACTIVE_TIMERS.set(String(name), _ends);
-            _dbg("timer set (in-process) " + name + " " + toSec);
             startTimerTick();
           }
         } catch {}
@@ -4218,14 +4217,14 @@ const readProvidersCfg = (): any => {
       if (c && c.t === "toggle") {
         c.v.setBody(String(c.v.body || "") + String(p.delta || p.content || ""));
         const sec = timeoutSecOf(String(c.v.body || ""));
-        if (sec > 0 && !ACTIVE_TIMERS.has(c.v.boldName)) { ACTIVE_TIMERS.set(c.v.boldName, Date.now() + sec * 1000); _dbg("timer set (delta) " + c.v.boldName + " " + sec); startTimerTick(); }
+        if (sec > 0 && !ACTIVE_TIMERS.has(c.v.boldName)) { ACTIVE_TIMERS.set(c.v.boldName, Date.now() + sec * 1000); startTimerTick(); }
       }
     } else if (t === "toolcall_end") {
       // Argomenti completi: ultima occasione per leggere il timeout.
       const c = kids[kids.length - 1];
       if (c && c.t === "toggle") {
         const sec = timeoutSecOf(String(c.v.body || ""));
-        if (sec > 0 && !ACTIVE_TIMERS.has(c.v.boldName)) { ACTIVE_TIMERS.set(c.v.boldName, Date.now() + sec * 1000); _dbg("timer set (end) " + c.v.boldName + " " + sec); startTimerTick(); }
+        if (sec > 0 && !ACTIVE_TIMERS.has(c.v.boldName)) { ACTIVE_TIMERS.set(c.v.boldName, Date.now() + sec * 1000); startTimerTick(); }
       }
     } else if (t === "tool_result") {
       try { ACTIVE_TIMERS.delete(String(p.toolName || "tool")); } catch {}
@@ -4330,7 +4329,24 @@ const readProvidersCfg = (): any => {
         } else if (t === "compaction_end") {
           onSessionEvent({ type: "compaction_end", summary: p.summary, errorMessage: p.errorMessage });
         }
+      } else if (method === "tool_call") {
+        // Il sidecar manda `tool_call` all'avvio di OGNI tool (con gli argomenti):
+        // è qui che nasce il toggle live e, se c'è un timeout, il countdown.
+        try {
+          const nm = String(p.toolName || "tool");
+          let body = "";
+          try { body = typeof p.toolArgs === "string" ? p.toolArgs : JSON.stringify(p.toolArgs ?? {}, null, 0); } catch {}
+          sealWritingFooter();
+          assistant = null; assistantText = "";
+          const tg = new ToggleBlock({ label: "Tool call", boldName: nm, color: C.toolCall, body });
+          const sec = timeoutSecOf(body);
+          if (sec > 0) { ACTIVE_TIMERS.set(nm, Date.now() + sec * 1000); startTimerTick(); }
+          pushBlock(registerToggle(tg));
+          scrollToEnd();
+          ui.requestRender();
+        } catch {}
       } else if (method === "tool_result") {
+        try { ACTIVE_TIMERS.delete(String(p.toolName || "tool")); } catch {}
         // The delegate's tool result means that delegation is over: close its
         // toggle automatically, exactly like a thinking toggle at message end.
         if (/delegate/i.test(String(p.toolName || ""))) {
