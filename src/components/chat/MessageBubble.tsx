@@ -425,7 +425,11 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
     return () => clearInterval(t)
   }, [countdownSec])
   const remaining = countdownSec ? Math.max(0, countdownSec - Math.floor(((nowTick - (startedAt || nowTick)) / 1000))) : 0
-  const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+  const mmss = (t: number) => {
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60
+    const two = (n: number) => String(n).padStart(2, '0')
+    return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`
+  }
   const [collapsed, setCollapsed] = useState(true)
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
@@ -448,7 +452,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
           {countdownSec > 0 && (
-            <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: 11.5, fontWeight: 400, padding: '1px 6px', borderRadius: 999, border: `1px solid rgba(${baseColorRgb}, 0.45)`, color: baseColor, flexShrink: 0, whiteSpace: 'nowrap' }}>
+            <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 400, marginLeft: 2, color, opacity: 1, flexShrink: 0, whiteSpace: 'nowrap' }}>
               {mmss(remaining)}
             </span>
           )}
