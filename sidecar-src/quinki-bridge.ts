@@ -5760,7 +5760,14 @@ Read this file to view it.` }] };
       names = merged.filter(n => all.includes(n));
       // Always include custom tools (delegate_to_agent, skill) even if not in getAllTools
       // — they were registered via createAgentSession customTools
-      const customToolNames = ["delegate_to_agent", "skill", "bash_readonly", "schedule_task", "cancel_schedule", "getTaskStatus", "getTaskExecuted", "readHandoff", "screenshot"];
+      // QUALSIASI custom tool registrato sulla sessione deve poter restare attivo:
+      // la whitelist fissa tagliava fuori i tool nuovi (agents/chat/skills/mcp/models_list).
+      const customToolNames = [
+        "delegate_to_agent", "skill", "bash_readonly", "schedule_task",
+        "cancel_schedule", "getTaskStatus", "getTaskExecuted", "readHandoff", "screenshot", "market",
+        "agents", "chat", "skills", "mcp", "models_list",
+        ...(((this.#active.get(key) as any)?._customTools || []).map((t: any) => String(t?.name || ""))),
+      ];
       for (const ct of customToolNames) {
         if (merged.includes(ct) && !names.includes(ct)) names.push(ct);
       }
