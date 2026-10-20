@@ -664,7 +664,94 @@ export function buildManageTools(ctx: ManageCtx): any[] {
     },
   }));
 
-  return tools;
+  // ═══════════ GRUPPI (4 tool invece di 31) ═══════════
+  // Il modello vede 4 tool con un enum di azioni; ogni azione riusa il tool interno.
+  const byName = new Map(tools.map((t: any) => [t.name, t]));
+  const dispatch = async (group: string, action: string, params: any) => {
+    const map: Record<string, Record<string, string>> = {
+      agents: { list: "agent_list", get: "agent_get", create: "agent_create", update: "agent_update",
+        set_prompt: "agent_set_prompt", duplicate: "agent_duplicate", delete: "agent_delete", install: "agent_install" },
+      chat: { agents: "chat_agents", add: "chat_add_agent", remove: "chat_remove_agent", orchestrator: "chat_set_orchestrator",
+        set_model: "chat_set_model", set_thinking: "chat_set_thinking", undo: "chat_graph_undo", redo: "chat_graph_redo", create: "chat_create" },
+      skills: { list: "skill_list", create: "skill_create", update: "skill_update", delete: "skill_delete",
+        attach: "skill_attach", detach: "skill_detach", install: "skill_install" },
+      mcp: { list: "mcp_list", add: "mcp_add", remove: "mcp_remove", attach: "mcp_attach", detach: "mcp_detach", install: "mcp_install" },
+    };
+    const target = map[group]?.[String(action || "")];
+    if (!target) return err(`unknown action "${action}" for ${group}. Use one of: ${Object.keys(map[group] || {}).join(", ")}`);
+    const t = byName.get(target);
+    if (!t) return err(`internal: ${target} not available`);
+    return await t.execute("", params, null, null, {});
+  };
+  const common = {
+    agent_id: Type.Optional(Type.String()), id: Type.Optional(Type.String()),
+    name: Type.Optional(Type.String()), description: Type.Optional(Type.String()),
+    prompt: Type.Optional(Type.String()), model: Type.Optional(Type.String()),
+    thinking: Type.Optional(Type.String()), tools: Type.Optional(Type.Array(Type.String())),
+    skills: Type.Optional(Type.Array(Type.String())), mcp: Type.Optional(Type.Array(Type.String())),
+    parent_id: Type.Optional(Type.String()), skill: Type.Optional(Type.String()),
+    source: Type.Optional(Type.String()), attach_to: Type.Optional(Type.String()),
+    on_conflict: Type.Optional(Type.Union([Type.Literal("rename"), Type.Literal("overwrite"), Type.Literal("skip")])),
+    confirm: Type.Optional(Type.Boolean()), label: Type.Optional(Type.String()),
+    agent_ids: Type.Optional(Type.Array(Type.String())), add_to_chat: Type.Optional(Type.Boolean()),
+    command: Type.Optional(Type.String()), args: Type.Optional(Type.Array(Type.String())),
+    url: Type.Optional(Type.String()), env: Type.Optional(Type.Record(Type.String(), Type.String())),
+  };
+  const grouped: any[] = [
+    defineTool({
+      name: "agents", label: "Agents",
+      description: `Manage agents. action: list | get | create | update | set_prompt | duplicate | delete | install.
+- list: all agents (id, name, model, skills, tools) + this chat's tree
+- get: {agent_id} → config + PROMPT.md
+- create: {name, description?, prompt?, model?, thinking?, tools?, skills?, mcp?} → new agent
+- update: {agent_id, name?/description?/model?/thinking?/tools?/skills?/mcp?}
+- set_prompt: {agent_id, prompt} → replaces PROMPT.md
+- duplicate: {agent_id, name?} → copy (use this instead of adding the same agent twice)
+- delete: {agent_id, confirm:true} → deletes the agent (removed from this chat first; root protected)
+- install: {source, add_to_chat?} → from market:<id>, GitHub folder/repo URL or raw config.json`,
+      parameters: Type.Object({ action: Type.String({ description: "list | get | create | update | set_prompt | duplicate | delete | install" }), ...common }),
+      async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("agents", action, rest); },
+    }),
+    defineTool({
+      name: "chat", label: "Chat agent tree",
+      description: `Manage THIS chat's agent tree. action: agents | add | remove | orchestrator | set_model | set_thinking | undo | redo | create.
+- agents: read agents, root, tree, overrides, graph_version
+- add: {agent_id, parent_id?} → add to the chat (child of parent, else child of root)
+- remove: {agent_id} → remove (children move up; root protected)
+- orchestrator: {agent_id} → make it the root (children move up, old root becomes its child)
+- set_model: {agent_id, model} → per-chat model override ("" clears)
+- set_thinking: {agent_id, thinking} → "off" | "on" ("" clears)
+- undo / redo: step through the last 10 graph states
+- create: {label, agent_ids[]} → new chat (first agent is the root)`,
+      parameters: Type.Object({ action: Type.String({ description: "agents | add | remove | orchestrator | set_model | set_thinking | undo | redo | create" }), ...common }),
+      async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("chat", action, rest); },
+    }),
+    defineTool({
+      name: "skills", label: "Skills",
+      description: `Manage skills. action: list | create | update | delete | attach | detach | install.
+- list: installed skills + which agents use them
+- create: {name, description, body} → new SKILL.md
+- update: {id, description?, body?}
+- delete: {id, confirm:true} → deletes and detaches everywhere
+- attach / detach: {agent_id, skill}
+- install: {source, attach_to?, on_conflict?} → market:<id>, GitHub repo/tree/file URL, raw URL, gist`,
+      parameters: Type.Object({ action: Type.String({ description: "list | create | update | delete | attach | detach | install" }), ...common }),
+      async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("skills", action, rest); },
+    }),
+    defineTool({
+      name: "mcp", label: "MCP servers",
+      description: `Manage MCP servers. action: list | add | remove | attach | detach | install.
+- list: servers + which agents use them
+- add: {id, command?, args?, url?, env?} → stdio (command) or http (url)
+- remove: {id, confirm:true} → deletes and detaches everywhere
+- attach / detach: {agent_id, mcp}
+- install: {source, attach_to?} → JSON config URL (mcp.json / claude_desktop_config.json) or HTTP endpoint`,
+      parameters: Type.Object({ action: Type.String({ description: "list | add | remove | attach | detach | install" }), ...common }),
+      async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("mcp", action, rest); },
+    }),
+    byName.get("models_list"),
+  ].filter(Boolean) as any[];
+  return grouped;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

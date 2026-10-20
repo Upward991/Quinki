@@ -5460,7 +5460,7 @@ Read this file to view it.` }] };
       }
       if (this.#mcpSig.get(sk) !== idsNow) {
         const mcpTools = await this.#buildMcpTools(sk, agentId);
-        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || String(t?.name||'').match(/^(agent_|chat_|skill_|mcp_|models_list)/) || t?.name === 'cancel_schedule' || t?.name === 'getTaskStatus' || t?.name === 'getTaskExecuted' || t?.name === 'readHandoff' || t?.name === 'screenshot' || t?.name === 'market');
+        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || ['agents','chat','skills','mcp','models_list'].includes(String(t?.name||'')) || t?.name === 'cancel_schedule' || t?.name === 'getTaskStatus' || t?.name === 'getTaskExecuted' || t?.name === 'readHandoff' || t?.name === 'screenshot' || t?.name === 'market');
         // === Re-registra TUTTI i custom tool che l'agente ha nel config ma che NON sono
         // ancora nel registry della sessione viva (assegnazione mid-session, come gli MCP):
         // delegate_to_agent, schedule_task, task tools, screenshot, market ===
