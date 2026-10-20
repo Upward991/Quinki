@@ -273,6 +273,7 @@ class BlankRow {
 const ACTIVE_TIMERS = new Map<string, number>();  // nome tool -> scadenza (se c'è timeout)
 const ACTIVE_START = new Map<string, number>();   // nome tool -> inizio (tempo trascorso)
 const FROZEN_TIMER = new Map<string, string>();   // nome tool -> valore congelato (tool finito)
+const PENDING_TC = new Map<string, any>();         // nome tool -> blocco Tool call ancora aperto
 function _dbg(msg: string) { try { require("node:fs").appendFileSync("/Users/andreamaddalena/Projects/Quinki/internal/.scratch/cli-dbg.log", Date.now() + " " + msg + "\n") } catch {} }
 
 function timeoutSecOf(argsText: string): number {
@@ -4301,8 +4302,17 @@ const readProvidersCfg = (): any => {
           sealWritingFooter();
           assistant = null;
           assistantText = "";
-          wsToolToggle = new ToggleBlock({ label: "Tool call", boldName: wsToolName, color: C.toolCall, body: "" });
-          pushBlock(registerToggle(wsToolToggle));
+          {
+            const _existing: any = PENDING_TC.get(wsToolName);
+            if (_existing && _existing.isToolCall && !_existing.frozenText) {
+              wsToolToggle = _existing;
+            } else {
+              wsToolToggle = new ToggleBlock({ label: "Tool call", boldName: wsToolName, color: C.toolCall, body: "" });
+              wsToolToggle.isToolCall = true;
+              pushBlock(registerToggle(wsToolToggle));
+              PENDING_TC.set(wsToolName, wsToolToggle);
+            }
+          }
           try {
             scrollToEnd();
             ui.requestRender();
@@ -4347,15 +4357,14 @@ const readProvidersCfg = (): any => {
           sealWritingFooter();
           assistant = null; assistantText = "";
           const sec = timeoutSecOf(body);
-          const lastTop: any = (toggles.length ? toggles[toggles.length - 1] : null);
-          let tg: any;
-          if (lastTop && lastTop.isToolCall && lastTop.boldName === nm && !lastTop.frozenText) {
-            tg = lastTop;
-            tg.setBody(body || tg.body);
-          } else {
+          let tg: any = PENDING_TC.get(nm);
+          if (!tg || tg.frozenText) {
             tg = new ToggleBlock({ label: "Tool call", boldName: nm, color: C.toolCall, body });
             tg.isToolCall = true;
             pushBlock(registerToggle(tg));
+            PENDING_TC.set(nm, tg);
+          } else {
+            tg.setBody(body || tg.body);
           }
           if (!tg.timerStartedAt) tg.timerStartedAt = Date.now();
           if (sec > 0) tg.timerEndsAt = tg.timerStartedAt + sec * 1000;
@@ -4366,7 +4375,7 @@ const readProvidersCfg = (): any => {
       } else if (method === "tool_result") {
         try {
           const _n = String(p.toolName || "tool");
-          const _tc: any = [...toggles].reverse().find((t: any) => t.isToolCall && t.boldName === _n && !t.frozenText);
+          const _tc: any = PENDING_TC.get(_n) || [...toggles].reverse().find((t: any) => t.isToolCall && t.boldName === _n && !t.frozenText);
           if (_tc && (_tc.timerEndsAt || _tc.timerStartedAt)) {
             const _raw = _tc.timerEndsAt ? Math.round((_tc.timerEndsAt - Date.now()) / 1000) : -Math.round((Date.now() - _tc.timerStartedAt) / 1000);
             const _t = Math.abs(_raw); const _h = Math.floor(_t / 3600), _m = Math.floor((_t % 3600) / 60), _s = _t % 60;
@@ -4374,6 +4383,7 @@ const readProvidersCfg = (): any => {
             _tc.frozenText = _h > 0 ? `${_h}:${_two(_m)}:${_two(_s)}` : `${_two(_m)}:${_two(_s)}`;
             _tc.timerEndsAt = 0; _tc.timerStartedAt = 0;
           }
+          PENDING_TC.delete(_n);
         } catch {}
         // The delegate's tool result means that delegation is over: close its
         // toggle automatically, exactly like a thinking toggle at message end.
