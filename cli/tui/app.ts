@@ -320,25 +320,26 @@ class ToggleBlock {
     // with the first letter of the writing and the right edge matches the text.
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
+    let timerTxt = "";
     if (this.isToolCall) {
       const endsAt = this.timerEndsAt;
       const started = this.timerStartedAt;
-      if (this.frozenText) {
-        head += " " + fg(col, this.frozenText);
-      } else if (endsAt || started) {
+      if (this.frozenText) timerTxt = this.frozenText;
+      else if (endsAt || started) {
         const rawLeft = endsAt ? Math.round((endsAt - Date.now()) / 1000) : -Math.round((Date.now() - started) / 1000);
         const t = Math.abs(rawLeft);
         const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
         const two = (n: number) => String(n).padStart(2, "0");
-        head += " " + fg(col, h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`);
+        timerTxt = h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`;
       }
+      if (timerTxt) head += " " + fg(col, timerTxt);
     }
     // 6 ott: while you navigate this toggle (Ctrl+Alt+arrows) it INVERTS:
     // background = its own color, text = the CLI background. Each toggle has
     // its own color, so you always see exactly which one you are on.
     if (this.selected) {
       try {
-        const seg = " " + arrow + " " + this.label + (this.boldName ? " " + this.boldName : "") + " ";
+        const seg = " " + arrow + " " + this.label + (this.boldName ? " " + this.boldName : "") + (timerTxt ? " " + timerTxt : "") + " ";
         head = bg(this.color, fg(C.bg, bold(seg)));
       } catch {}
     }
