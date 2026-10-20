@@ -759,7 +759,7 @@ export function AgentsPanel(props) {
               onShowDelete: () => setDeleteAgentName(agent.name),
               onAddFile: () => setAddFileAgent(agent.name),
               onAddSkill: () => setAddItemsModal({ title: `Add skill to ${agent.name}`, items: skills.map(s => ({ name: s.name, description: s.description })), initialSelected: (agent.skills||[]).map(s=>s.name||s), onConfirm: (selected) => doAddSkillsToAgent(agent.id, selected) }),
-              onAddTool: () => setAddItemsModal({ title: `Add tool to ${agent.name}`, items: tools.map(t => ({ name: t.name, description: t.description })), initialSelected: (agent.tools||[]).map(t=>t.name||t), onConfirm: (selected) => doAddToolsToAgent(agent.id, selected) }),
+              onAddTool: () => setAddItemsModal({ title: `Add tool to ${agent.name}`, items: [...tools].sort((a: any, b: any) => (a.readOnly ? 1 : 0) - (b.readOnly ? 1 : 0)).map((t: any) => ({ name: t.name, description: `${t.readOnly ? 'read' : 'write'} · ${t.description || ''}` })), initialSelected: (agent.tools||[]).map(t=>t.name||t), onConfirm: (selected) => doAddToolsToAgent(agent.id, selected) }),
               mcpServers,
               onAddMcp: () => setAddItemsModal({ title: `Add MCP to ${agent.name}`, items: mcpServers.map(s => ({ name: s.name, description: s.description || s.source })), initialSelected: (agent.mcpServers || []).map(id => { const s = mcpServers.find(x => x.id === id); return s ? s.name : null; }).filter(Boolean), onConfirm: (selected) => doAddMcpToAgent(agent.id, selected.map(n => { const s = mcpServers.find(x => x.name === n); return s ? s.id : n; }).filter(Boolean)) }),
               onOpenFile: (fileName) => setFileEditor({ agentId: agent.id, fileName }),

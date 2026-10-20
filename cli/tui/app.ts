@@ -1528,7 +1528,7 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const out: any[] = [];
       for (const t of qToolsData) {
         const nm = String(t?.name || ""); if (!nm) continue;
-        out.push({ value: "pmt:" + nm, label: (pm[nm] ? "\u25cf " : "\u25cb ") + nm, description: t?.readOnly ? "read-only" : "" });
+        out.push({ value: "pmt:" + nm, label: (pm[nm] ? "\u25cf " : "\u25cb ") + nm, description: t?.readOnly ? "read" : "write" });
       }
       return out;
     }
@@ -1569,11 +1569,11 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const out: any[] = [{ value: "__sep_tools", label: "Tools", separator: true }];
       // T519: read-only tools grouped together first (the engine list has "read"
       // alone on top, then write/edit/bash, then the other read-only ones).
-      const toolsSorted = qToolsData.slice().sort((a: any, b: any) => (b?.readOnly ? 1 : 0) - (a?.readOnly ? 1 : 0));
+      const toolsSorted = qToolsData.slice().sort((a: any, b: any) => (a?.readOnly ? 1 : 0) - (b?.readOnly ? 1 : 0));
       for (const t of toolsSorted) {
         const nm = String(t?.name || ""); if (!nm) continue;
         const n = countAgentsWith([nm], "tools");
-        out.push({ value: "tool:" + nm, label: nm, description: (t?.readOnly ? "read-only \u00b7 " : "") + String(n) + " agent" + (n === 1 ? "" : "s") });
+        out.push({ value: "tool:" + nm, label: nm, description: (t?.readOnly ? "read \u00b7 " : "write \u00b7 ") + String(n) + " agent" + (n === 1 ? "" : "s") });
       }
       return out;
     }
