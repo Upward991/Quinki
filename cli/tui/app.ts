@@ -268,6 +268,10 @@ class BlankRow {
  *  - Thinking: italic body
  *  - selected (Ctrl+up/down): full color even when collapsed
  */
+/** Timer attivi dei tool call (chiave: nome|body). I ToggleBlock vengono ricreati a
+ *  ogni render della history: il countdown deve sopravvivere fuori dall'istanza. */
+const ACTIVE_TIMERS = new Map<string, number>();
+
 class ToggleBlock {
   label: string;
   boldName: string;
@@ -296,8 +300,9 @@ class ToggleBlock {
     // with the first letter of the writing and the right edge matches the text.
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
-    if (this.timerEndsAt) {
-      const left = Math.max(0, Math.round((this.timerEndsAt - Date.now()) / 1000));
+    const _endsAt = this.timerEndsAt || ACTIVE_TIMERS.get(this.boldName + "|" + this.body) || 0;
+    if (_endsAt) {
+      const left = Math.max(0, Math.round((_endsAt - Date.now()) / 1000));
       const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), sec = left % 60;
       const two = (n: number) => String(n).padStart(2, "0");
       head += " " + fg(col, h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`);
@@ -2586,7 +2591,7 @@ const readProvidersCfg = (): any => {
     if (timerTick) return;
     timerTick = setInterval(() => {
       try {
-        if (!toggles.some((t: any) => t.timerEndsAt)) { clearInterval(timerTick); timerTick = null; return; }
+        if (!toggles.some((t: any) => t.timerEndsAt) && ACTIVE_TIMERS.size === 0) { clearInterval(timerTick); timerTick = null; return; }
         ui.requestRender();
       } catch { clearInterval(timerTick); timerTick = null; }
     }, 1000);
@@ -3923,7 +3928,12 @@ const readProvidersCfg = (): any => {
               || (Number.isFinite(Number(j.timeoutMs ?? j.timeout_ms)) ? Math.round(Number(j.timeoutMs ?? j.timeout_ms) / 1000) : 0);
             return v || 0;
           })();
-          if (toSec > 0) { _tc.timerEndsAt = Date.now() + toSec * 1000; startTimerTick(); }
+          if (toSec > 0) {
+            const _ends = Date.now() + toSec * 1000;
+            _tc.timerEndsAt = _ends;
+            ACTIVE_TIMERS.set(String(name) + "|" + String(body), _ends);
+            startTimerTick();
+          }
         } catch {}
         pushBlock(registerToggle(_tc));
           // TASK: si gestiscono nell'APP (in CLI non c'è una vista) → un rimando, una volta per turno.
@@ -3937,7 +3947,11 @@ const readProvidersCfg = (): any => {
         assistant = null;
         assistantText = "";
       } else if (e?.type === "tool_execution_end") {
-        try { const last = [...toggles].reverse().find((t: any) => t.timerEndsAt); if (last) last.timerEndsAt = 0 } catch {}
+        try {
+          const _nm = String(e.toolName || e.name || (e as any).tool?.name || "tool");
+          for (const k of [...ACTIVE_TIMERS.keys()]) if (k.startsWith(_nm + "|")) ACTIVE_TIMERS.delete(k);
+          const last = [...toggles].reverse().find((t: any) => t.timerEndsAt); if (last) last.timerEndsAt = 0;
+        } catch {}
         const name = e.toolName || e.name || e.tool?.name || "tool";
         const isErr = !!e.isError;
         const r: any = e.result;
