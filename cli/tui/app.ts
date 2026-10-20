@@ -274,6 +274,7 @@ class ToggleBlock {
   color: string;
   body: string;
   italic: boolean;
+  timerEndsAt = 0;   // >0 = countdown attivo (timeout di un tool call)
   open = false;
   selected = false;
   children: any[] = []; // nested content: {t:"text",v:string} | {t:"toggle",v:ToggleBlock}
@@ -295,6 +296,12 @@ class ToggleBlock {
     // with the first letter of the writing and the right edge matches the text.
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
+    if (this.timerEndsAt) {
+      const left = Math.max(0, Math.round((this.timerEndsAt - Date.now()) / 1000));
+      const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), sec = left % 60;
+      const two = (n: number) => String(n).padStart(2, "0");
+      head += " " + fg(col, h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`);
+    }
     // 6 ott: while you navigate this toggle (Ctrl+Alt+arrows) it INVERTS:
     // background = its own color, text = the CLI background. Each toggle has
     // its own color, so you always see exactly which one you are on.
@@ -2573,6 +2580,17 @@ const readProvidersCfg = (): any => {
     toggles.push(t);
     return t;
   };
+  /** Tick da 1s: ridisegna finché esiste un tool call con countdown (timeout). */
+  let timerTick: any = null;
+  const startTimerTick = () => {
+    if (timerTick) return;
+    timerTick = setInterval(() => {
+      try {
+        if (!toggles.some((t: any) => t.timerEndsAt)) { clearInterval(timerTick); timerTick = null; return; }
+        ui.requestRender();
+      } catch { clearInterval(timerTick); timerTick = null; }
+    }, 1000);
+  };
   /** Scroll the viewport so the given toggle is visible (heights estimated).
    *  Riceve l'OGGETTO del toggle (non un indice: la lista "flat" e quella top-level
    *  divergono coi toggle annidati) e risale al capostipite dentro il content.
@@ -3897,7 +3915,17 @@ const readProvidersCfg = (): any => {
         } catch {}
         // The tool call toggle is ALWAYS a plain tool call (delegations included):
         // the delegation toggle is a SEPARATE block, created right below it.
-        pushBlock(registerToggle(new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body })));
+        const _tc = new ToggleBlock({ label: "Tool call", boldName: name, color: C.toolCall, body });
+        try {
+          const toSec = (() => {
+            const j: any = args || {};
+            const v = [j.timeout, j.timeoutSeconds, j.timeout_seconds].map(Number).find((x) => Number.isFinite(x) && x > 0)
+              || (Number.isFinite(Number(j.timeoutMs ?? j.timeout_ms)) ? Math.round(Number(j.timeoutMs ?? j.timeout_ms) / 1000) : 0);
+            return v || 0;
+          })();
+          if (toSec > 0) { _tc.timerEndsAt = Date.now() + toSec * 1000; startTimerTick(); }
+        } catch {}
+        pushBlock(registerToggle(_tc));
           // TASK: si gestiscono nell'APP (in CLI non c'è una vista) → un rimando, una volta per turno.
           if (String(name) === "schedule_task" && !qTaskHintShown) {
             qTaskHintShown = true;
@@ -3909,6 +3937,7 @@ const readProvidersCfg = (): any => {
         assistant = null;
         assistantText = "";
       } else if (e?.type === "tool_execution_end") {
+        try { const last = [...toggles].reverse().find((t: any) => t.timerEndsAt); if (last) last.timerEndsAt = 0 } catch {}
         const name = e.toolName || e.name || e.tool?.name || "tool";
         const isErr = !!e.isError;
         const r: any = e.result;
