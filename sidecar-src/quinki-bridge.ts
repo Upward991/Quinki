@@ -7627,7 +7627,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
         try {
           const _bh = currentBuildHash();
           const _e: any = this.#entries.get(sk);
-          if (_e && _e.builtWith && _e.builtWith !== _bh) {
+          // builtWith assente (chat vecchie) = va riallineata come se il build fosse cambiato
+          if (_e && _e.builtWith !== _bh) {
             this.#mcpSig.set(sk, "__build_changed__");
             this.#refreshSessionTools(sk);
             this.logDebug("session-tools-build-refresh", { sessionKey: sk, from: _e.builtWith, to: _bh });
