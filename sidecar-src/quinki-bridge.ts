@@ -4026,7 +4026,7 @@ class QuinkiBridge {
     const self = this;
     try {
       return defineTool({
-        name: "screenshot",
+        name: "quinki_screenshot",
         label: "Take a screenshot",
         description: "Capture a screenshot of the Quinki app window (saved as PNG on disk). Use it when you need to SEE the app's UI — e.g. to verify a UI change you made, debug a layout, or when the user asks you to look at the screen. Then read the returned file to inspect it.",
         promptSnippet: "screenshot: capture the Quinki app and get the PNG path",
@@ -4818,9 +4818,9 @@ Read this file to view it.` }] };
     try {
       const agentId = this.#resolvePrimaryAgent(key) || "";
       const cfg = this.#readAgentConfigFile(agentId) as any;
-      const wantsIt = (Array.isArray(cfg?.tools) && cfg.tools.includes("delegate_to_agent")) || this.#hasChildren(key, agentId);
+      const wantsIt = (Array.isArray(cfg?.tools) && cfg.tools.includes("quinki_delegate")) || this.#hasChildren(key, agentId);
       let tools: any[] = Array.isArray(pi._customTools) ? [...pi._customTools] : [];
-      tools = tools.filter((t: any) => t?.name !== "delegate_to_agent");
+      tools = tools.filter((t: any) => t?.name !== "quinki_delegate");
       if (wantsIt) { const t = this.#buildDelegateTool(key, { selfAgentId: agentId }); if (t) tools.push(t); }
       // tool di gestione: riallineati al config (aggiunti/rimossi)
       const mg = this.#manageToolsFor(key, agentId);
@@ -5513,29 +5513,29 @@ Read this file to view it.` }] };
       }
       if (this.#mcpSig.get(sk) !== idsNow) {
         const mcpTools = await this.#buildMcpTools(sk, agentId);
-        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'delegate_to_agent' || t?.name === 'schedule_task' || ['agents','chat','skills','mcp','models_list'].includes(String(t?.name||'')) || t?.name === 'cancel_schedule' || t?.name === 'getTaskStatus' || t?.name === 'getTaskExecuted' || t?.name === 'readHandoff' || t?.name === 'screenshot' || t?.name === 'market');
+        const keep = ((pi as any)._customTools || []).filter((t: any) => t?.name === 'skill' || t?.name === 'quinki_delegate' || t?.name === 'quinki_schedule' || ['agents','chat','skills','mcp','quinki_models'].includes(String(t?.name||'')) || t?.name === 'quinki_cancel_schedule' || t?.name === 'quinki_tasks' || t?.name === 'quinki_task' || t?.name === 'quinki_handoff' || t?.name === 'quinki_screenshot' || t?.name === 'quinki_market');
         // === Re-registra TUTTI i custom tool che l'agente ha nel config ma che NON sono
         // ancora nel registry della sessione viva (assegnazione mid-session, come gli MCP):
         // delegate_to_agent, schedule_task, task tools, screenshot, market ===
         const has = (name: string) => keep.some((t: any) => t?.name === name);
         const wants = (name: string) => Array.isArray(cfg?.tools) && cfg.tools.includes(name);
-        if ((wants('delegate_to_agent') || this.#hasChildren(sk, agentId)) && !has('delegate_to_agent')) {
+        if ((wants('quinki_delegate') || this.#hasChildren(sk, agentId)) && !has('quinki_delegate')) {
           try { const t = this.#buildDelegateTool(sk); if (t) keep.push(t); } catch {}
         }
-        if (wants('bash_readonly') && !has('bash_readonly')) {
+        if (wants('quinki_bash_readonly') && !has('quinki_bash_readonly')) {
           try { const t = this.#buildBashReadonlyTool(sk); if (t) keep.push(t); } catch {}
         }
-        if (wants('schedule_task') && !has('schedule_task')) {
+        if (wants('quinki_schedule') && !has('quinki_schedule')) {
           try { const t = this.#buildScheduleTool(sk); if (t) keep.push(t); } catch {}
         }
         // P2 #10: cancel_schedule — l'agente può cancellare le schedule che ha creato
-        if (wants('cancel_schedule') && !has('cancel_schedule')) {
+        if (wants('quinki_cancel_schedule') && !has('quinki_cancel_schedule')) {
           try { const t = this.#buildCancelScheduleTool(sk); if (t) keep.push(t); } catch {}
         }
-        if (wants('getTaskStatus') || wants('getTaskExecuted') || wants('readHandoff')) {
+        if (wants('quinki_tasks') || wants('quinki_task') || wants('quinki_handoff')) {
           try { const tt = this.#buildTaskTools(sk); if (tt.length > 0) for (const t of tt) { if (!has((t as any).name)) keep.push(t); } } catch {}
         }
-        if (!has('market')) {
+        if (!has('quinki_market')) {
           try { const t = this.#buildMarketTool(); if (t) keep.push(t); } catch {}
         }
         // TOOL DI GESTIONE: assegnati/disassegnati dalla tab Agents a sessione viva
@@ -5550,17 +5550,17 @@ Read this file to view it.` }] };
             }
           }
         } catch {}
-        if (wants('screenshot') && !has('screenshot')) {
+        if (wants('quinki_screenshot') && !has('quinki_screenshot')) {
           try { const st = this.#buildScreenshotTool(sk); if (st) keep.push(st); } catch {}
         }
         // Rimuovi i custom tool NON più richiesti dal config (mid-session removal corretto)
         const cfgToolsNow = Array.isArray(cfg?.tools) ? (cfg.tools as string[]) : [];
         const filtered = keep.filter((t: any) => {
           const n = t?.name || "";
-          const alwaysKeep = ['skill', 'market'].includes(n);
+          const alwaysKeep = ['skill', 'quinki_market'].includes(n);
           if (alwaysKeep) return true;
           // orchestrator di RUOLO: il delegate resta anche se non e' nel config dell'agente
-          if (n === 'delegate_to_agent' && this.#hasChildren(sk, agentId)) return true;
+          if (n === 'quinki_delegate' && this.#hasChildren(sk, agentId)) return true;
           return cfgToolsNow.includes(n);
         });
         (pi as any)._customTools = [...filtered, ...mcpTools];
@@ -5592,7 +5592,7 @@ Read this file to view it.` }] };
           this.#applyMode(pi, sk, entryMode === "build" ? "build" : "plan");
           this.logDebug("mcp-refresh-mode-reapplied", { sessionKey: sk, mode: entryMode });
         } catch (e: any) { this.logDebug("mcp-refresh-mode-error", { sessionKey: sk, error: String(e?.message || e) }); }
-        this.logDebug("mcp-config-refresh", { sessionKey: sk, mcpTools: mcpTools.length, keep: keep.length, screenshotRegistered: keep.some((t: any) => t?.name === 'screenshot') });
+        this.logDebug("mcp-config-refresh", { sessionKey: sk, mcpTools: mcpTools.length, keep: keep.length, screenshotRegistered: keep.some((t: any) => t?.name === 'quinki_screenshot') });
         return true;
       }
     } catch (e: any) { this.logDebug("mcp-refresh-error", { sessionKey: sk, error: e?.message || String(e) }); return false; }
@@ -5682,19 +5682,19 @@ Read this file to view it.` }] };
           const d = pi?.getToolDefinition?.(name);
           let params = "";
           try { params = JSON.stringify(d?.parameters ?? {}); } catch { try { params = String(d?.parameters || ""); } catch {} }
-          // bash_readonly: mostra "bash_readonly" invece di "bash" quando la sessione è in modalità read-only
+          // bash_readonly: mostra "quinki_bash_readonly" invece di "bash" quando la sessione è in modalità read-only
           let displayName = d?.name || name;
           if (name === "bash" && key && this.#bashReadonlySessions.has(key)) {
-            displayName = "bash_readonly";
+            displayName = "quinki_bash_readonly";
           }
           // `mcp`: true se il tool viene DAVVERO da un server MCP → il Log mostra due
           // elenchi distinti. Attenzione: un MCP può DICHIARARE un nome che è già nostro
           // (BrowserOS dichiara `read`/`grep`/`screenshot`) ma il tool eseguito resta il
           // NOSTRO (verificato: legge i file). Quindi i nomi core non sono mai "MCP".
           const CORE_TOOL_NAMES = new Set([
-            "read", "write", "edit", "bash", "bash_readonly", "grep", "find", "ls", "skill",
-            "screenshot", "market", "delegate_to_agent", "schedule_task", "cancel_schedule",
-            "getTaskStatus", "getTaskExecuted", "readHandoff",
+            "read", "write", "edit", "bash", "quinki_bash_readonly", "grep", "find", "ls", "skill",
+            "quinki_screenshot", "quinki_market", "quinki_delegate", "quinki_schedule", "quinki_cancel_schedule",
+            "quinki_tasks", "quinki_task", "quinki_handoff",
           ]);
           const isMcp = !CORE_TOOL_NAMES.has(name)
             && (mcpNames.has(name) || String(d?.description || "").includes("(MCP server:"));
@@ -5763,9 +5763,9 @@ Read this file to view it.` }] };
       // QUALSIASI custom tool registrato sulla sessione deve poter restare attivo:
       // la whitelist fissa tagliava fuori i tool nuovi (agents/chat/skills/mcp/models_list).
       const customToolNames = [
-        "delegate_to_agent", "skill", "bash_readonly", "schedule_task",
-        "cancel_schedule", "getTaskStatus", "getTaskExecuted", "readHandoff", "screenshot", "market",
-        "agents", "chat", "skills", "mcp", "models_list",
+        "quinki_delegate", "quinki_skill", "quinki_bash_readonly", "quinki_schedule",
+        "quinki_cancel_schedule", "quinki_tasks", "quinki_task", "quinki_handoff", "quinki_screenshot", "quinki_market",
+        "quinki_agents", "quinki_chat", "quinki_skills", "quinki_mcp", "quinki_models",
         ...(((this.#active.get(key) as any)?._customTools || []).map((t: any) => String(t?.name || ""))),
       ];
       for (const ct of customToolNames) {
@@ -5787,7 +5787,7 @@ Read this file to view it.` }] };
         // Prima restava attivo e il modello lo sceglieva spesso (sembra più "sicuro"),
         // restando bloccato sui comandi di scrittura. Si toglie SOLO se `bash` c'è:
         // un agente configurato senza bash deve mantenere il suo read-only.
-        if (names.includes("bash")) names = names.filter((n) => n !== "bash_readonly");
+        if (names.includes("bash")) names = names.filter((n) => n !== "quinki_bash_readonly");
       }
       // MCP: in Build mode tutti i tool dei server assegnati; in Plan mode solo i tool
       // dei server abilitati globalmente nella sezione Plan mode (planModeMcp, vale per tutti gli agenti).
@@ -5922,7 +5922,7 @@ Read this file to view it.` }] };
     };
 
     const statusTool = defineTool({
-      name: "getTaskStatus",
+      name: "quinki_tasks",
       label: "Get task status",
       description: "List the status of all tasks (scheduled and executed) belonging to this chat/session. Use it when the user asks 'what's the status of my tasks?', 'a che punto sono i task?', or wants to know what is scheduled. Returns scheduled tasks (with their time) and executed tasks (with their status).",
       promptSnippet: "getTaskStatus: list scheduled and executed tasks of this session with their status",
@@ -5974,7 +5974,7 @@ Read this file to view it.` }] };
     });
 
     const resultTool = defineTool({
-      name: "getTaskExecuted",
+      name: "quinki_task",
       label: "Get task result",
       description: "Read the full result of a specific task execution (by execution id). Use it when the user asks 'what did task X do?', 'che ne pensi del risultato di X?', or wants to discuss a task's outcome. Returns the task label, status, the final text produced, and the model used.",
       promptSnippet: "getTaskExecuted: read the FULL execution of a specific task by id (same content as the Task executed toggle: reasoning, tool calls, tool results, final text)",
@@ -6033,7 +6033,7 @@ Read this file to view it.` }] };
     });
 
     const handoffTool = defineTool({
-      name: "readHandoff",
+      name: "quinki_handoff",
       label: "Read handoff",
       description: "Read the handoff file of this session (the memory of what the scheduled tasks have done). Use it when the user asks 'what have the tasks done?', 'cosa hanno fatto i task?', or wants the history of task work. Returns the full handoff content (or the last N lines / a search).",
       promptSnippet: "readHandoff: read the handoff memory of this session's tasks",
@@ -6075,7 +6075,7 @@ Read this file to view it.` }] };
   #buildScheduleTool(sessionKey: string): any {
     const self = this;
     return defineTool({
-      name: "schedule_task",
+      name: "quinki_schedule",
       label: "Schedule task",
       description: "Schedule an autonomous task that runs later or on a recurring basis with FULL flexibility. Supports: once (specific date), seconds (every N seconds), minutely (every N minutes), hourly (every N hours), daily (every day or every N days), weekly (specific days of week, optionally every N weeks), monthly (day of month, optionally every N months), yearly (month+day, optionally every N years). You can ALSO pass multiple rules with the 'rules' parameter: the task fires when ANY rule triggers (e.g. Wednesday at 19:49 AND Saturday at 20:50). Each schedule carries its own timezone (timeZone, IANA; default: the machine's timezone captured at creation) and always fires at that wall-clock time — even if the machine later changes timezone or daylight saving changes (some zones never change). If the app is closed at fire time, the task runs as soon as possible afterwards (late, never skipped).",
       promptSnippet: "schedule_task: schedule a task for automatic execution — flexible recurrence (seconds, minutes, hours, days, weeks, months, years, timezone, multi-rule)",
@@ -6175,7 +6175,7 @@ Read this file to view it.` }] };
   #buildCancelScheduleTool(sessionKey: string): any {
     const self = this;
     return defineTool({
-      name: "cancel_schedule",
+      name: "quinki_cancel_schedule",
       label: "Cancel schedule",
       description: "Cancel/delete a scheduled task by its schedule ID. Use it when the user asks to cancel, delete, or stop a task that was previously scheduled (e.g. 'cancel the 7am task', 'stop the daily report').",
       promptSnippet: "cancel_schedule: cancel a previously scheduled task by its ID",
@@ -6367,9 +6367,9 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       // I tool NATIVI hanno la precedenza: un MCP con lo stesso nome viene rinominato
       // (read -> read_1). Senza questo, l'agente vedeva la versione MCP di `read` e
       // non usava la nostra (bug segnalato il 20 ott).
-      "read","write","edit","bash","bash_readonly","grep","find","ls","skill","market",
-      "delegate_to_agent","schedule_task","cancel_schedule","getTaskStatus","getTaskExecuted",
-      "readHandoff","screenshot","agents","chat","skills","mcp","models_list",
+      "read","write","edit","bash","quinki_bash_readonly","grep","find","ls","skill","quinki_market",
+      "quinki_delegate","quinki_schedule","quinki_cancel_schedule","quinki_tasks","quinki_task",
+      "quinki_handoff","quinki_screenshot","agents","chat","skills","mcp","quinki_models",
     ]);
     for (const sid of ids) {
       const server = readMcpServers().find((s: any) => s.id === sid);
@@ -6503,7 +6503,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   #buildToolsInventoryTool(sk: string): any {
     const self = this;
     return defineTool({
-      name: "tools",
+      name: "quinki_tools",
       label: "My tools",
       description: "List the tools you ACTUALLY have in this session (native, custom, MCP), with the MCP server for each one. Use this instead of reading app files or configs.",
       parameters: Type.Object({ filter: Type.Optional(Type.String({ description: "Optional text filter" })) }),
@@ -6524,7 +6524,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
   #buildMarketTool(): any {
     const self = this;
     return defineTool({
-      name: "market",
+      name: "quinki_market",
       label: "Quinki Market",
       description: "Quinki Market: search and install packages (tabs, skills, agents, MCP servers, themes) from the market directly in the app. Actions: search <query> to find packages, list <category> (tabs|agents|skills|mcp|themes), install <id> to install a package by its id. The app installs it natively.",
       promptSnippet: "market: search and install packages from the Quinki Market",
@@ -6670,7 +6670,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     const self = this;
     const { exec } = require("node:child_process");
     return defineTool({
-      name: "bash_readonly",
+      name: "quinki_bash_readonly",
       label: "Bash (read-only)",
       description: "Execute READ-ONLY shell commands (ls, cat, grep, find, git status/log, etc.). Commands that modify, create, delete files, install anything, or write anywhere are BLOCKED.",
       promptSnippet: "bash_readonly: execute read-only shell commands (writes blocked)",
@@ -6732,7 +6732,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       ? `Delegate a task to one of your direct agents: ${_rosterNames.join(", ")}. The agent receives the task, executes it, and returns the response; you then synthesize it for the user. To reach an agent deeper in the tree, ask your direct child to delegate further.`
       : "Delegate a task to one of the agents you can delegate to. The agent receives the task, executes it, and returns the response.";
     return defineTool({
-      name: "delegate_to_agent",
+      name: "quinki_delegate",
       label: "Delegate to agent",
       description: _desc,
       promptSnippet: "delegate_to_agent: delegate a task to a specific agent in the chat",
@@ -6952,7 +6952,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             try {
               const all = (tempPi.getAllTools?.() ?? []).map((t: any) => t.name) as string[];
                 tempToolNames = mergedTools.filter(n => all.includes(n));
-                if (tempDelegateTool && !tempToolNames.includes("delegate_to_agent")) tempToolNames.push("delegate_to_agent");
+                if (tempDelegateTool && !tempToolNames.includes("quinki_delegate")) tempToolNames.push("quinki_delegate");
               if (mainMode === "plan") {
                 const planFlags = globalConfig.planModeTools || {};
                 tempToolNames = tempToolNames.filter(n => planFlags[n] !== false);
@@ -7319,7 +7319,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     if (!lhPhaseNow && !lean) {
       const m = mode === "build" ? "build" : "plan";
       // Check if this agent has delegate_to_agent tool (orchestrator or agent with it in config)
-      const hasDelegate = !!(agentId && (this.#isSessionOrchestrator(key, agentId) || (this.#readAgentConfigFile(agentId)?.tools?.includes('delegate_to_agent'))));
+      const hasDelegate = !!(agentId && (this.#isSessionOrchestrator(key, agentId) || (this.#readAgentConfigFile(agentId)?.tools?.includes('quinki_delegate'))));
       prompt += this.#modeNote(m, hasDelegate);
     }
     // === Albero: lista dei MIEI agenti (figli) ===
@@ -7755,14 +7755,14 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
         // Check if the agent has delegate_to_agent in its config tools
         const agentCfg = this.#readAgentConfigFile(resolvedAgentId);
         const isOrchestrator = this.#isSessionOrchestrator(sk, resolvedAgentId);
-        const hasDelegateTool = agentCfg?.tools?.includes('delegate_to_agent');
+        const hasDelegateTool = agentCfg?.tools?.includes('quinki_delegate');
         if (hasDelegateTool || isOrchestrator) {
           const delegateTool = this.#buildDelegateTool(sk);
           if (delegateTool) customTools.push(delegateTool);
           this.logDebug("delegate-tool-registered", { sessionKey: sk, agentId: resolvedAgentId, isOrchestrator });
         }
         // bash_readonly: TOOL REALE e autonomo — registrato alla creazione se l'agente lo ha nel config
-        const hasBashReadonly = agentCfg?.tools?.includes('bash_readonly');
+        const hasBashReadonly = agentCfg?.tools?.includes('quinki_bash_readonly');
         if (hasBashReadonly) {
           try {
             const broTool = this.#buildBashReadonlyTool(sk);
@@ -7773,7 +7773,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           }
         }
         // A2.2: schedule_task SOLO se l'agente lo ha nel config tools (assegnabile dalla tab Agents)
-        const hasScheduleTool = !!(agentCfg?.tools?.includes('schedule_task'));
+        const hasScheduleTool = !!(agentCfg?.tools?.includes('quinki_schedule'));
         if (hasScheduleTool) {
           try {
             const schedTool = this.#buildScheduleTool(sk);
@@ -7784,7 +7784,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           }
         }
         // P2 #10: cancel_schedule — l'agente può cancellare le schedule che ha creato
-        const hasCancelScheduleTool = !!(agentCfg?.tools?.includes('cancel_schedule'));
+        const hasCancelScheduleTool = !!(agentCfg?.tools?.includes('quinki_cancel_schedule'));
         if (hasCancelScheduleTool) {
           try {
             const cancelTool = this.#buildCancelScheduleTool(sk);
@@ -7795,7 +7795,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           }
         }
         // A2.10: tool task (getTaskStatus/getTaskExecuted/readHandoff) SOLO se l'agente li ha nel config
-        const hasTaskTools = !!(agentCfg?.tools?.includes('getTaskStatus') || agentCfg?.tools?.includes('getTaskExecuted') || agentCfg?.tools?.includes('readHandoff'));
+        const hasTaskTools = !!(agentCfg?.tools?.includes('quinki_tasks') || agentCfg?.tools?.includes('quinki_task') || agentCfg?.tools?.includes('quinki_handoff'));
         if (hasTaskTools) {
           try {
             const taskTools = this.#buildTaskTools(sk);
@@ -7806,7 +7806,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           }
         }
         // screenshot: solo per l'App Expert o agenti che lo hanno nel config tools
-        const hasScreenshotTool = !!(agentCfg?.tools?.includes('screenshot')) || resolvedAgentId === 'app-expert';
+        const hasScreenshotTool = !!(agentCfg?.tools?.includes('quinki_screenshot')) || resolvedAgentId === 'app-expert';
         if (hasScreenshotTool) {
           try {
             const screenshotTool = this.#buildScreenshotTool(sk);
@@ -7973,7 +7973,7 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
         }
       } catch {}
       this.#pendingMode.delete(sk);
-      try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd, !!(resolvedAgentId && (this.#isSessionOrchestrator(sk, resolvedAgentId) || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes('delegate_to_agent')))); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
+      try { this.#applyMode(pi, sk, intendedMode, data.workingDirs, effectiveCwd, !!(resolvedAgentId && (this.#isSessionOrchestrator(sk, resolvedAgentId) || this.#readAgentConfigFile(resolvedAgentId)?.tools?.includes('quinki_delegate')))); this.logDebug("mode-applied-send", { sessionKey: sk, mode: intendedMode }); }
       catch (e: any) { this.logDebug("mode-apply-error", { sessionKey: sk, error: e?.message }); }
 
       // === Apply per-agent model/thinking override (for direct @tag — MAIN path) ===
@@ -8730,10 +8730,10 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           }
         } catch {}
         // 1) Authorized folders: blocca i tool file su path fuori dalle cartelle autorizzate
-        const fileTools = ["read", "write", "edit", "grep", "find", "ls"];
+        const fileTools = ["quinki_read", "quinki_write", "quinki_edit", "quinki_grep", "quinki_find", "quinki_ls"];
         if (fileTools.includes(name)) {
           const p = String((args as any)?.path || (args as any)?.filePath || "");
-          if (p && !this.isPathAllowed(key, p, name === "write" || name === "edit")) {
+          if (p && !this.isPathAllowed(key, p, name === "quinki_write" || name === "quinki_edit")) {
             const ws2 = this.#wss.get(key);
             try { this.#sendToWs(ws2, { type: "tool_call", sessionKey: key, toolCallId: toolCall.id, toolName: name, toolArgs: args, ts: Date.now() }); } catch {}
             this.logDebug("authorized-folder-blocked", { sessionKey: key, tool: name, path: p });

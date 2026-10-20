@@ -751,7 +751,7 @@ export class InteractiveMode {
                 hint("app.interrupt", "interrupt"),
                 rawKeyHint(`${keyText("app.clear")}/${keyText("app.exit")}`, "clear/exit"),
                 rawKeyHint("/", "commands"),
-                rawKeyHint("!", "bash"),
+                rawKeyHint("!", "quinki_bash"),
                 hint("app.tools.expand", "more"),
             ].join(theme.fg("muted", " · "));
             const compactOnboarding = () => theme.fg("dim", `Press ${keyText("app.tools.expand")} to show full startup help${showDetails ? " and loaded resources" : ""}.`);

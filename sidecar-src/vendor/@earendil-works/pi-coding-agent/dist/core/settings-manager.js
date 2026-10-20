@@ -32,7 +32,7 @@ function deepMergeObjects(base, overrides) {
     return result;
 }
 /** Tools enabled at startup when `defaultTools` does not change them. */
-export const DEFAULT_TOOL_NAMES = ["read", "bash", "edit", "write"];
+export const DEFAULT_TOOL_NAMES = ["quinki_read", "quinki_bash", "quinki_edit", "quinki_write"];
 /** Whether a tool selection entry is a `+name` or `-name` modifier. */
 export function isToolModifier(entry) {
     return typeof entry === "string" && (entry.startsWith("+") || entry.startsWith("-"));

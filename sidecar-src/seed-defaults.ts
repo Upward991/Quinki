@@ -13,14 +13,14 @@ const ORCHESTRATOR_CONFIG = {
     "find",
     "ls",
     "skill",
-    "delegate_to_agent",
-    "schedule_task",
-    "cancel_schedule",
-    "getTaskStatus",
-    "getTaskExecuted",
-    "readHandoff",
-    "screenshot",
-    "market"
+    "quinki_delegate",
+    "quinki_schedule",
+    "quinki_cancel_schedule",
+    "quinki_tasks",
+    "quinki_task",
+    "quinki_handoff",
+    "quinki_screenshot",
+    "quinki_market"
   ],
   "skills": []
 };
@@ -37,13 +37,13 @@ const EXPERT_CONFIG = {
     "write",
     "edit",
     "bash",
-    "schedule_task",
-    "cancel_schedule",
-    "getTaskStatus",
-    "getTaskExecuted",
-    "readHandoff",
-    "screenshot",
-    "market"
+    "quinki_schedule",
+    "quinki_cancel_schedule",
+    "quinki_tasks",
+    "quinki_task",
+    "quinki_handoff",
+    "quinki_screenshot",
+    "quinki_market"
   ],
   "skills": [
     "write-coding-standards-from-file",
@@ -67,14 +67,14 @@ const QUINKI_CONFIG = {
     "write",
     "edit",
     "bash",
-    "schedule_task",
-    "cancel_schedule",
-    "getTaskStatus",
-    "getTaskExecuted",
-    "readHandoff",
-    "screenshot",
-    "market",
-    "delegate_to_agent"
+    "quinki_schedule",
+    "quinki_cancel_schedule",
+    "quinki_tasks",
+    "quinki_task",
+    "quinki_handoff",
+    "quinki_screenshot",
+    "quinki_market",
+    "quinki_delegate"
   ],
   "skills": []
 };

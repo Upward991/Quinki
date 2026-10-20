@@ -261,7 +261,7 @@ export class RpcClient {
      * Execute a bash command.
      */
     async bash(command) {
-        const response = await this.send({ type: "bash", command });
+        const response = await this.send({ type: "quinki_bash", command });
         return this.getData(response);
     }
     /**

@@ -94,7 +94,7 @@ export function getShellConfig(customShellPath) {
     if (existsSync("/bin/bash")) {
         return getBashShellConfig("/bin/bash");
     }
-    const bashOnPath = findExecutableOnPath("bash");
+    const bashOnPath = findExecutableOnPath("quinki_bash");
     if (bashOnPath) {
         return getBashShellConfig(bashOnPath);
     }

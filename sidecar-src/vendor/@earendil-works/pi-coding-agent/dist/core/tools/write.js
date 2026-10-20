@@ -20,8 +20,8 @@ const defaultWriteOperations = {
 export function createWriteToolDefinition(cwd, options) {
     const ops = options?.operations ?? defaultWriteOperations;
     return {
-        name: "write",
-        label: "write",
+        name: "quinki_write",
+        label: "quinki_write",
         description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.",
         promptSnippet: writeToolSystemPromptContribution.snippet,
         promptGuidelines: [...writeToolSystemPromptContribution.guidelines],

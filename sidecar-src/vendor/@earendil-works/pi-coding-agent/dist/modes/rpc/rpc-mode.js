@@ -436,7 +436,7 @@ export async function runRpcMode(runtimeHost) {
             // =================================================================
             // Bash
             // =================================================================
-            case "bash": {
+            case "quinki_bash": {
                 const eventResult = await session.extensionRunner.emitUserBash({
                     type: "user_bash",
                     command: command.command,
@@ -447,14 +447,14 @@ export async function runRpcMode(runtimeHost) {
                     session.recordBashResult(command.command, eventResult.result, {
                         excludeFromContext: command.excludeFromContext,
                     });
-                    return success(id, "bash", eventResult.result);
+                    return success(id, "quinki_bash", eventResult.result);
                 }
                 const result = await session.executeBash(command.command, undefined, {
                     excludeFromContext: command.excludeFromContext,
                     id,
                     operations: eventResult?.operations,
                 });
-                return success(id, "bash", result);
+                return success(id, "quinki_bash", result);
             }
             case "abort_bash": {
                 session.abortBash();

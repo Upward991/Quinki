@@ -792,19 +792,19 @@ class TreeList {
             return p;
         };
         switch (name) {
-            case "read": {
+            case "quinki_read": {
                 const path = shortenPath(String(args.path || args.file_path || ""));
                 return `[read: ${path}${formatReadLineRange(args.offset, args.limit)}]`;
             }
-            case "write": {
+            case "quinki_write": {
                 const path = shortenPath(String(args.path || args.file_path || ""));
                 return `[write: ${path}]`;
             }
-            case "edit": {
+            case "quinki_edit": {
                 const path = shortenPath(String(args.path || args.file_path || ""));
                 return `[edit: ${path}]`;
             }
-            case "bash": {
+            case "quinki_bash": {
                 const rawCmd = String(args.command || "");
                 const cmd = rawCmd
                     .replace(/[\n\t]/g, " ")
@@ -812,17 +812,17 @@ class TreeList {
                     .slice(0, 50);
                 return `[bash: ${cmd}${rawCmd.length > 50 ? "..." : ""}]`;
             }
-            case "grep": {
+            case "quinki_grep": {
                 const pattern = String(args.pattern || "");
                 const path = shortenPath(String(args.path || "."));
                 return `[grep: /${pattern}/ in ${path}]`;
             }
-            case "find": {
+            case "quinki_find": {
                 const pattern = String(args.pattern || "");
                 const path = shortenPath(String(args.path || "."));
                 return `[find: ${pattern} in ${path}]`;
             }
-            case "ls": {
+            case "quinki_ls": {
                 const path = shortenPath(String(args.path || "."));
                 return `[ls: ${path}]`;
             }

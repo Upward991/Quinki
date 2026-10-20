@@ -17,32 +17,32 @@ import { createPowerShellTool, createPowerShellToolDefinition } from "./powershe
 import { createReadTool, createReadToolDefinition } from "./read.js";
 import { createWriteTool, createWriteToolDefinition } from "./write.js";
 export const allToolNames = new Set([
-    "read",
-    "bash",
+    "quinki_read",
+    "quinki_bash",
     "powershell",
-    "edit",
-    "write",
-    "grep",
-    "find",
-    "ls",
+    "quinki_edit",
+    "quinki_write",
+    "quinki_grep",
+    "quinki_find",
+    "quinki_ls",
 ]);
 export function createToolDefinition(toolName, cwd, options) {
     switch (toolName) {
-        case "read":
+        case "quinki_read":
             return createReadToolDefinition(cwd, options?.read);
-        case "bash":
+        case "quinki_bash":
             return createBashToolDefinition(cwd, options?.bash);
         case "powershell":
             return createPowerShellToolDefinition(cwd, options?.powershell);
-        case "edit":
+        case "quinki_edit":
             return createEditToolDefinition(cwd, options?.edit);
-        case "write":
+        case "quinki_write":
             return createWriteToolDefinition(cwd, options?.write);
-        case "grep":
+        case "quinki_grep":
             return createGrepToolDefinition(cwd, options?.grep);
-        case "find":
+        case "quinki_find":
             return createFindToolDefinition(cwd, options?.find);
-        case "ls":
+        case "quinki_ls":
             return createLsToolDefinition(cwd, options?.ls);
         default:
             throw new Error(`Unknown tool name: ${toolName}`);
@@ -50,21 +50,21 @@ export function createToolDefinition(toolName, cwd, options) {
 }
 export function createTool(toolName, cwd, options) {
     switch (toolName) {
-        case "read":
+        case "quinki_read":
             return createReadTool(cwd, options?.read);
-        case "bash":
+        case "quinki_bash":
             return createBashTool(cwd, options?.bash);
         case "powershell":
             return createPowerShellTool(cwd, options?.powershell);
-        case "edit":
+        case "quinki_edit":
             return createEditTool(cwd, options?.edit);
-        case "write":
+        case "quinki_write":
             return createWriteTool(cwd, options?.write);
-        case "grep":
+        case "quinki_grep":
             return createGrepTool(cwd, options?.grep);
-        case "find":
+        case "quinki_find":
             return createFindTool(cwd, options?.find);
-        case "ls":
+        case "quinki_ls":
             return createLsTool(cwd, options?.ls);
         default:
             throw new Error(`Unknown tool name: ${toolName}`);

@@ -60,7 +60,7 @@ function getDefaultAgentDir() {
  * await loader.reload();
  * const { session } = await createAgentSession({
  *   model: myModel,
- *   tools: ["read", "bash"],
+ *   tools: ["quinki_read", "quinki_bash"],
  *   resourceLoader: loader,
  *   sessionManager: SessionManager.inMemory(),
  * });

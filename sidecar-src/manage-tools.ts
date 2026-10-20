@@ -641,7 +641,7 @@ export function buildManageTools(ctx: ManageCtx): any[] {
   }));
 
   tools.push(defineTool({
-    name: "models_list", label: "List models",
+    name: "quinki_models", label: "List models",
     description: "List the models available on this machine (id + provider) — use real ids when setting an agent model.",
     parameters: Type.Object({ filter: Type.Optional(Type.String()) }),
     async execute(_id: string, p: any) {
@@ -699,7 +699,7 @@ export function buildManageTools(ctx: ManageCtx): any[] {
   };
   const grouped: any[] = [
     defineTool({
-      name: "agents", label: "Agents",
+      name: "quinki_agents", label: "Agents",
       description: `Manage agents. action: list | get | create | update | set_prompt | duplicate | delete | install.
 - list: all agents (id, name, model, skills, tools) + this chat's tree
 - get: {agent_id} → config + PROMPT.md
@@ -713,7 +713,7 @@ export function buildManageTools(ctx: ManageCtx): any[] {
       async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("agents", action, rest); },
     }),
     defineTool({
-      name: "chat", label: "Chat agent tree",
+      name: "quinki_chat", label: "Chat agent tree",
       description: `Manage THIS chat's agent tree. action: agents | add | remove | orchestrator | set_model | set_thinking | undo | redo | create.
 - agents: read agents, root, tree, overrides, graph_version
 - add: {agent_id, parent_id?} → add to the chat (child of parent, else child of root)
@@ -727,7 +727,7 @@ export function buildManageTools(ctx: ManageCtx): any[] {
       async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("chat", action, rest); },
     }),
     defineTool({
-      name: "skills", label: "Skills",
+      name: "quinki_skills", label: "Skills",
       description: `Manage skills. action: list | create | update | delete | attach | detach | install.
 - list: installed skills + which agents use them
 - create: {name, description, body} → new SKILL.md
@@ -739,7 +739,7 @@ export function buildManageTools(ctx: ManageCtx): any[] {
       async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("skills", action, rest); },
     }),
     defineTool({
-      name: "mcp", label: "MCP servers",
+      name: "quinki_mcp", label: "MCP servers",
       description: `Manage MCP servers. action: list | add | remove | attach | detach | install.
 - list: servers + which agents use them
 - add: {id, command?, args?, url?, env?} → stdio (command) or http (url)
@@ -749,7 +749,7 @@ export function buildManageTools(ctx: ManageCtx): any[] {
       parameters: Type.Object({ action: Type.String({ description: "list | add | remove | attach | detach | install" }), ...common }),
       async execute(_i: string, p: any) { const { action, ...rest } = p || {}; return dispatch("mcp", action, rest); },
     }),
-    byName.get("models_list"),
+    byName.get("quinki_models"),
   ].filter(Boolean) as any[];
   return grouped;
 }

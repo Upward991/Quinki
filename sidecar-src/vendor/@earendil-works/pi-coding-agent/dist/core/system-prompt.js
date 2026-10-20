@@ -10,7 +10,7 @@ export function normalizeBuildSystemPromptOptions(input) {
     return {
         customPrompt: input.customPrompt,
         forceSystemPrompt: input.forceSystemPrompt,
-        selectedTools: [...(input.selectedTools ?? ["read", "bash", "edit", "write"])],
+        selectedTools: [...(input.selectedTools ?? ["quinki_read", "quinki_bash", "quinki_edit", "quinki_write"])],
         hiddenTools: [...(input.hiddenTools ?? [])],
         toolSnippets: { ...(input.toolSnippets ?? {}) },
         toolGuidelines: Object.fromEntries(Object.entries(input.toolGuidelines ?? {}).map(([name, guidelines]) => [name, [...guidelines]])),
@@ -38,11 +38,11 @@ function buildRules(selectedTools, toolGuidelines, promptGuidelines) {
         seen.add(normalized);
         rules.push(normalized);
     };
-    const hasBash = selectedTools.includes("bash");
+    const hasBash = selectedTools.includes("quinki_bash");
     const hasPowerShell = selectedTools.includes("powershell");
-    const hasGrep = selectedTools.includes("grep");
-    const hasFind = selectedTools.includes("find");
-    const hasLs = selectedTools.includes("ls");
+    const hasGrep = selectedTools.includes("quinki_grep");
+    const hasFind = selectedTools.includes("quinki_find");
+    const hasLs = selectedTools.includes("quinki_ls");
     if ((hasBash || hasPowerShell) && !hasGrep && !hasFind && !hasLs) {
         if (hasBash && hasPowerShell) {
             addRule("Use bash or PowerShell for file operations like listing, searching, and finding files");
@@ -99,7 +99,7 @@ export function buildSystemPromptSections(input) {
     if (contextFiles.length > 0)
         promptSections.project_context = renderProjectContext(contextFiles);
     // A hidden reader is still reachable through another tool, so skills stay but the hint names no tool.
-    const readers = ["read", "bash"];
+    const readers = ["quinki_read", "quinki_bash"];
     const skillFileReadTool = readers.find((tool) => declaredTools.includes(tool)) ??
         (readers.some((tool) => selectedTools.includes(tool)) ? "indirect" : undefined);
     if (skillFileReadTool && skills.length > 0) {

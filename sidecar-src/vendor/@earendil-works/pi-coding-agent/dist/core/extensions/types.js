@@ -19,28 +19,28 @@ export function defineTool(tool) {
 }
 // Type guards for ToolResultEvent
 export function isBashToolResult(e) {
-    return e.toolName === "bash";
+    return e.toolName === "quinki_bash";
 }
 export function isPowerShellToolResult(e) {
     return e.toolName === "powershell";
 }
 export function isReadToolResult(e) {
-    return e.toolName === "read";
+    return e.toolName === "quinki_read";
 }
 export function isEditToolResult(e) {
-    return e.toolName === "edit";
+    return e.toolName === "quinki_edit";
 }
 export function isWriteToolResult(e) {
-    return e.toolName === "write";
+    return e.toolName === "quinki_write";
 }
 export function isGrepToolResult(e) {
-    return e.toolName === "grep";
+    return e.toolName === "quinki_grep";
 }
 export function isFindToolResult(e) {
-    return e.toolName === "find";
+    return e.toolName === "quinki_find";
 }
 export function isLsToolResult(e) {
-    return e.toolName === "ls";
+    return e.toolName === "quinki_ls";
 }
 export function isToolCallEventType(toolName, event) {
     return event.toolName === toolName;

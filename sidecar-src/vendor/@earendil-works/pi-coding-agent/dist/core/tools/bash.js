@@ -130,7 +130,7 @@ export function createLocalShellOperations(shellName, resolveShellConfig) {
  * standard local shell behavior while wrapping or rewriting commands.
  */
 export function createLocalBashOperations(options) {
-    return createLocalShellOperations("bash", () => getShellConfig(options?.shellPath));
+    return createLocalShellOperations("quinki_bash", () => getShellConfig(options?.shellPath));
 }
 function resolveSpawnContext(command, cwd, spawnHook, exposeSessionEnvironment, ctx) {
     const env = { ...getShellEnv() };
@@ -310,9 +310,9 @@ export function createShellToolDefinition(cwd, config, options) {
     };
 }
 const bashToolConfig = {
-    name: "bash",
-    label: "bash",
-    shellName: "bash",
+    name: "quinki_bash",
+    label: "quinki_bash",
+    shellName: "quinki_bash",
     prompt: "$",
     promptSnippet: bashToolSystemPromptContribution.snippet,
     promptGuidelines: bashToolSystemPromptContribution.guidelines,

@@ -39,13 +39,13 @@ function addFileOp(toolName, args, fileOps) {
     if (!path)
         return;
     switch (toolName) {
-        case "read":
+        case "quinki_read":
             fileOps.read.add(path);
             break;
-        case "write":
+        case "quinki_write":
             fileOps.written.add(path);
             break;
-        case "edit":
+        case "quinki_edit":
             fileOps.edited.add(path);
             break;
     }

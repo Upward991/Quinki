@@ -2971,7 +2971,7 @@ export class AgentSession {
         this._applyExtensionBindings(this._extensionRunner);
         const defaultActiveToolNames = this._baseToolsOverride
             ? Object.keys(this._baseToolsOverride)
-            : ["read", "bash", "edit", "write"];
+            : ["quinki_read", "quinki_bash", "quinki_edit", "quinki_write"];
         const baseActiveToolNames = options.activeToolNames ?? defaultActiveToolNames;
         this._refreshToolRegistry({
             activeToolNames: baseActiveToolNames,
