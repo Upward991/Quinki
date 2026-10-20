@@ -298,7 +298,8 @@ class ToggleBlock {
   timerEndsAt = 0;   // >0 = countdown attivo (timeout di un tool call)
   timerStartedAt = 0; // inizio (per il tempo trascorso senza timeout)
   frozenText = "";    // valore congelato quando il tool è finito
-  isToolCall = false; // SOLO i blocchi "Tool call" hanno il timer
+  isToolCall = false; // blocco Tool call
+  isDelegation = false; // blocco delega (timer: durata della delega)
   open = false;
   selected = false;
   children: any[] = []; // nested content: {t:"text",v:string} | {t:"toggle",v:ToggleBlock}
@@ -321,7 +322,7 @@ class ToggleBlock {
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
     let timerTxt = "";
-    if (this.isToolCall) {
+    if (this.isToolCall || this.isDelegation) {
       const endsAt = this.timerEndsAt;
       const started = this.timerStartedAt;
       if (this.frozenText) timerTxt = this.frozenText;
@@ -4268,7 +4269,16 @@ const readProvidersCfg = (): any => {
         }
         if (t === "delegation_end") {
           const tg = delegToggles.get(String(p.messageId || ""));
-          if (tg) tg.open = false;
+          if (tg) {
+            tg.open = false;
+            if (tg.timerStartedAt && !tg.frozenText) {
+              const secs = Math.max(0, Math.round((Date.now() - tg.timerStartedAt) / 1000));
+              const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), sec = secs % 60;
+              const two = (n: number) => String(n).padStart(2, "0");
+              tg.frozenText = h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`;
+              tg.timerStartedAt = 0;
+            }
+          }
           try {
             ui.requestRender();
           } catch {}
@@ -4331,6 +4341,9 @@ const readProvidersCfg = (): any => {
           // call, CLOSED by default, with the task bubble inside.
           const tgt = String(p.agentName || "").trim();
           const tg = new ToggleBlock({ label: "Delegation to", boldName: tgt, color: C.delegation, open: false });
+          tg.isDelegation = true;
+          tg.timerStartedAt = Date.now();
+          startTimerTick();
           const task = String(p.task || "").trim();
           if (task) tg.children.push({ t: "bubble", v: task });
           delegToggles.set(String(p.messageId || ""), tg);

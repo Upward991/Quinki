@@ -215,7 +215,13 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
   const { isError, isStreaming, timestamp, agentName, agentModel, thinkingLevel, thinkingTranslated, onCopy, searchQuery, activeOcc } = opts
   return blocks.map((b: any, i: number, arr: any[]) => {
     if (b.type === 'thinking') return <ThinkingToggle key={`b-${i}`} content={b.content || ""} streaming={isStreaming && i === arr.length - 1} />
-    if (b.type === 'tool_call') return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false} running={isStreaming && i === arr.length - 1} startedAt={Date.parse(String(timestamp)) || undefined} />
+    if (b.type === 'tool_call') {
+      const delegStreaming = blocks.some((x: any) => x.type === 'delegation' && x.streaming)
+      const isDelegating = b.name === 'delegate_to_agent' && delegStreaming
+      return <ToolToggle key={`b-${i}`} label="Tool call" toolName={b.name} body={b.input || ''} isError={false}
+        running={(isStreaming && i === arr.length - 1) || isDelegating}
+        startedAt={Date.parse(String(timestamp)) || undefined} />
+    }
     if (b.type === 'tool_result') return <ToolToggle key={`b-${i}`} label={b.isError ? 'Tool error' : 'Tool result'} toolName={b.name} body={b.output || ''} isError={b.isError} />
     if (b.type === 'delegation') return <DelegationBlockView key={`b-${i}`} delegation={b} timestamp={timestamp} streaming={b.streaming} onCopy={onCopy} searchQuery={searchQuery} activeOcc={activeOcc} />
     if (b.type === 'text') {
@@ -527,6 +533,17 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQ
   const [hovered, setHovered] = useState(false)
   const [copyHovered, setCopyHovered] = useState(false)
   useEffect(() => { if (streaming === false) setCollapsed(true) }, [streaming])
+  // TIMER della delega: tempo trascorso finché streama, poi congelato
+  const dStart = Date.parse(String(timestamp)) || Date.now()
+  const [dNow, setDNow] = useState(Date.now())
+  const [dFrozen, setDFrozen] = useState('')
+  useEffect(() => {
+    if (streaming === false) { setDFrozen(fmtDur(Math.floor((dNow - dStart) / 1000))); return }
+    const t = setInterval(() => setDNow(Date.now()), 500)
+    return () => clearInterval(t)
+  }, [streaming])
+  function fmtDur(t: number) { const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; const two = (n: number) => String(n).padStart(2, '0'); return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}` }
+  const dTimer = streaming === false ? dFrozen : fmtDur(Math.floor((dNow - dStart) / 1000))
 
   const baseColor = 'var(--q-delegation)'
   const baseColorRgb = '201, 112, 132'
@@ -543,6 +560,7 @@ function DelegationBlockView({ delegation, timestamp, streaming, onCopy, searchQ
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>Delegated to</span>
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{delegation.agentName}</span>
+          {dTimer && <span style={{ fontFamily: 'var(--font-code)', fontSize: 13, color, fontWeight: 400, marginLeft: 2 }}>{dTimer}</span>}
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
           {!preview && <span style={{ flex: 1 }} />}
           <button onClick={(e) => { e.stopPropagation(); try {
