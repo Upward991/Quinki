@@ -414,19 +414,31 @@ function extractText(node: React.ReactNode): string {
 }
 
 // ── Generic toggle (thinking, tool, compaction — all same structure) ──
-function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, boldLabel, streaming, countdownSec, startedAt }: {
+function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, boldLabel, streaming, countdownSec, startedAt, running }: {
   label: string; content: string; baseColor: string; baseColorRgb: string; isItalic?: boolean; boldLabel?: string; streaming?: boolean
-  countdownSec?: number; startedAt?: number
+  countdownSec?: number; startedAt?: number; running?: boolean
 }) {
   const [nowTick, setNowTick] = useState(Date.now())
+  const [frozen, setFrozen] = useState<string>('')
+  const liveTimer = !!running || countdownSec > 0
   useEffect(() => {
-    if (!countdownSec) return
+    if (!liveTimer) return
     const t = setInterval(() => setNowTick(Date.now()), 500)
     return () => clearInterval(t)
-  }, [countdownSec])
-  const leftRaw = countdownSec ? countdownSec - Math.floor(((nowTick - (startedAt || nowTick)) / 1000)) : 0
+  }, [liveTimer])
+  const elapsed = Math.floor(((nowTick - (startedAt || nowTick)) / 1000))
+  const leftRaw = countdownSec ? countdownSec - elapsed : -elapsed   // senza timeout: cresce da 0
   const remaining = Math.max(0, leftRaw)
   const overrun = leftRaw < 0 ? -leftRaw : 0
+  // Quando il tool finisce, il valore resta CONGELATO dov'era (non sparisce)
+  useEffect(() => {
+    if (running) return
+    if (!startedAt) return
+    const e2 = Math.floor((nowTick - startedAt) / 1000)
+    const raw = countdownSec ? countdownSec - e2 : -e2
+    const val = raw < 0 ? '+' + (() => { const t = -raw; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; const two = (n: number) => String(n).padStart(2, '0'); return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}` })() : (() => { const t = raw; const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60; const two = (n: number) => String(n).padStart(2, '0'); return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}` })()
+    if (val && val !== frozen) setFrozen(val)
+  }, [running, startedAt, countdownSec])
   const mmss = (t: number) => {
     const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60
     const two = (n: number) => String(n).padStart(2, '0')
@@ -453,9 +465,9 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ChevronRight size={14} style={{ color, flexShrink: 0, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)', transition: 'none' }} />
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
-          {countdownSec > 0 && (
+          {(running || !!frozen) && (
             <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 400, marginLeft: 2, color, opacity: 1, flexShrink: 0, whiteSpace: 'nowrap' }}>
-              {overrun > 0 ? '+' + mmss(overrun) : mmss(remaining)}
+              {running ? (overrun > 0 ? '+' + mmss(overrun) : mmss(remaining)) : frozen}
             </span>
           )}
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
@@ -500,7 +512,7 @@ function ToolToggle({ label, toolName, body, isError, startedAt, running }: { la
     }
   })()
   return <GenericToggle label={label} boldLabel={toolName} content={body} baseColor={baseColor} baseColorRgb={baseColorRgb}
-    countdownSec={running && timeoutSec > 0 ? timeoutSec : 0} startedAt={startedAt} />
+    countdownSec={running ? timeoutSec : 0} startedAt={startedAt} running={running} />
 }
 
 function CompactionToggle({ content, isNoop }: { content: string; isNoop: boolean }) {

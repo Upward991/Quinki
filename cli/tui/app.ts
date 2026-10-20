@@ -270,7 +270,9 @@ class BlankRow {
  */
 /** Timer attivi dei tool call (chiave: nome|body). I ToggleBlock vengono ricreati a
  *  ogni render della history: il countdown deve sopravvivere fuori dall'istanza. */
-const ACTIVE_TIMERS = new Map<string, number>();
+const ACTIVE_TIMERS = new Map<string, number>();  // nome tool -> scadenza (se c'è timeout)
+const ACTIVE_START = new Map<string, number>();   // nome tool -> inizio (tempo trascorso)
+const FROZEN_TIMER = new Map<string, string>();   // nome tool -> valore congelato (tool finito)
 function _dbg(msg: string) { try { require("node:fs").appendFileSync("/Users/andreamaddalena/Projects/Quinki/internal/.scratch/cli-dbg.log", Date.now() + " " + msg + "\n") } catch {} }
 
 function timeoutSecOf(argsText: string): number {
@@ -315,8 +317,12 @@ class ToggleBlock {
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
     const _endsAt = this.timerEndsAt || ACTIVE_TIMERS.get(this.boldName) || 0;
-    if (_endsAt) {
-      const rawLeft = Math.round((_endsAt - Date.now()) / 1000);
+    const _started = ACTIVE_START.get(this.boldName) || 0;
+    const _frozen = (!_endsAt && !_started) ? FROZEN_TIMER.get(this.boldName) : undefined;
+    if (_frozen) {
+      head += " " + fg(col, _frozen);
+    } else if (_endsAt || _started) {
+      const rawLeft = _endsAt ? Math.round((_endsAt - Date.now()) / 1000) : -Math.round((Date.now() - _started) / 1000);
       const over = rawLeft < 0 ? -rawLeft : 0;
       const left = Math.abs(rawLeft);
       const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), sec = left % 60;
@@ -4338,15 +4344,32 @@ const readProvidersCfg = (): any => {
           try { body = typeof p.toolArgs === "string" ? p.toolArgs : JSON.stringify(p.toolArgs ?? {}, null, 0); } catch {}
           sealWritingFooter();
           assistant = null; assistantText = "";
-          const tg = new ToggleBlock({ label: "Tool call", boldName: nm, color: C.toolCall, body });
+          ACTIVE_START.set(nm, Date.now());
           const sec = timeoutSecOf(body);
-          if (sec > 0) { ACTIVE_TIMERS.set(nm, Date.now() + sec * 1000); startTimerTick(); }
-          pushBlock(registerToggle(tg));
+          if (sec > 0) ACTIVE_TIMERS.set(nm, Date.now() + sec * 1000);
+          startTimerTick();
+          // DEDUPE: se l'ultimo blocco è già una tool call con lo stesso nome, aggiorna gli args
+          const lastTop: any = (toggles.length ? toggles[toggles.length - 1] : null);
+          if (lastTop && lastTop.boldName === nm && !String(lastTop.label).includes("result")) {
+            lastTop.setBody(body || lastTop.body);
+          } else {
+            const tg = new ToggleBlock({ label: "Tool call", boldName: nm, color: C.toolCall, body });
+            pushBlock(registerToggle(tg));
+          }
           scrollToEnd();
           ui.requestRender();
         } catch {}
       } else if (method === "tool_result") {
-        try { ACTIVE_TIMERS.delete(String(p.toolName || "tool")); } catch {}
+        try {
+          const _n = String(p.toolName || "tool");
+          const _end = ACTIVE_TIMERS.get(_n); const _st = ACTIVE_START.get(_n);
+          const _left = _end ? Math.round((_end - Date.now()) / 1000) : (_st ? -Math.round((Date.now() - _st) / 1000) : 0);
+          const _t = Math.abs(_left); const _h = Math.floor(_t / 3600), _m = Math.floor((_t % 3600) / 60), _s = _t % 60;
+          const _two = (n: number) => String(n).padStart(2, "0");
+          const _lbl = _h > 0 ? `${_h}:${_two(_m)}:${_two(_s)}` : `${_two(_m)}:${_two(_s)}`;
+          FROZEN_TIMER.set(_n, _left < 0 ? "+" + _lbl : _lbl);
+          ACTIVE_TIMERS.delete(_n); ACTIVE_START.delete(_n);
+        } catch {}
         // The delegate's tool result means that delegation is over: close its
         // toggle automatically, exactly like a thinking toggle at message end.
         if (/delegate/i.test(String(p.toolName || ""))) {
