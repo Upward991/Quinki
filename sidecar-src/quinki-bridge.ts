@@ -461,6 +461,8 @@ class QuinkiBridge {
   // streama ma è LAVORO VERO. Questa è la verità della status pill: la sessione è
   // BUSY finché il tool non finisce. Usata dallo shrink del pool e dal recovery.
   #toolBusy = new Set<string>();
+  /** Timer dei tool call in esecuzione: sessionKey → (toolName → {startedAt, timeoutSec}) */
+  #toolTimers = new Map<string, Map<string, { startedAt: number; timeoutSec: number }>>();
   #lastEffectiveCwd = new Map<string, string>();  // ultimo effectiveCwd per sessione (per delega)
   #skillsMtime = new Map<string, number>();  // mtime .pi/skills/ al session-create (auto-reload skill, history preservata)
   // === A3: Notifiche — read-state per chat + log notifiche ===
@@ -4570,6 +4572,16 @@ Read this file to view it.` }] };
     return fired;
   }
 
+  /** Tool call in esecuzione con timeout: { nome: {startedAt, timeoutSec} }.
+   *  Serve alla CLI (e alla UI) per mostrare il countdown anche dopo un refresh. */
+  getToolTimers(key: string): Record<string, { startedAt: number; timeoutSec: number }> {
+    const m = this.#toolTimers.get(key);
+    if (!m) return {};
+    const out: any = {};
+    for (const [k, v] of m) out[k] = v;
+    return out;
+  }
+
   getStreamingSnapshot(key: string): any | null {
     const buf = this.#streamingBuffers.get(key);
     if (!buf) {
@@ -8610,6 +8622,17 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       const origBefore = pi.agent?.beforeToolCall;
       pi.agent.beforeToolCall = async ({ toolCall, args }: any) => {
         const name = toolCall?.name;
+        // === TIMER: qui gli argomenti sono SEMPRE presenti (l'evento di start a volte non li ha)
+        try {
+          const v = [args?.timeout, args?.timeoutSeconds, args?.timeout_seconds].map(Number).find((x: number) => Number.isFinite(x) && x > 0)
+            || (Number.isFinite(Number(args?.timeoutMs ?? args?.timeout_ms)) ? Math.round(Number(args?.timeoutMs ?? args?.timeout_ms) / 1000) : 0);
+          if (v && v > 0) {
+            const m = this.#toolTimers.get(key) || new Map();
+            m.set(String(name || "tool"), { startedAt: Date.now(), timeoutSec: Number(v) });
+            this.#toolTimers.set(key, m);
+            this.logDebug("tool-timer-start", { sessionKey: key, tool: name, timeoutSec: v });
+          }
+        } catch {}
         // 1) Authorized folders: blocca i tool file su path fuori dalle cartelle autorizzate
         const fileTools = ["read", "write", "edit", "grep", "find", "ls"];
         if (fileTools.includes(name)) {
@@ -8642,8 +8665,23 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
     const sub = pi.subscribe(async (e: any) => {
       // T457: the tool truth (the status pill): busy while a tool executes.
       try {
-        if (e.type === "tool_execution_start") this.#toolBusy.add(key);
-        else if (e.type === "tool_execution_end") this.#toolBusy.delete(key);
+        if (e.type === "tool_execution_start") {
+          this.#toolBusy.add(key);
+          // TIMER: registra il timeout del tool in esecuzione (per CLI e UI)
+          try {
+            const a: any = e.args || e.arguments || e.input || {};
+            const v = [a?.timeout, a?.timeoutSeconds, a?.timeout_seconds].map(Number).find((x: number) => Number.isFinite(x) && x > 0)
+              || (Number.isFinite(Number(a?.timeoutMs ?? a?.timeout_ms)) ? Math.round(Number(a?.timeoutMs ?? a?.timeout_ms) / 1000) : 0);
+            if (v && v > 0) {
+              const m = this.#toolTimers.get(key) || new Map();
+              m.set(String(e.toolName || "tool"), { startedAt: Date.now(), timeoutSec: Number(v) });
+              this.#toolTimers.set(key, m);
+            }
+          } catch {}
+        } else if (e.type === "tool_execution_end") {
+          this.#toolBusy.delete(key);
+          try { this.#toolTimers.get(key)?.delete(String(e.toolName || "tool")); } catch {}
+        }
       } catch {}
       // FIX (29 ago — bug 'Running bloccato per sempre + streaming perso'): il
       // vecchio `if (!ws || !open) return;` BUTTAVA VIA TUTTI gli eventi del turno
@@ -9124,7 +9162,17 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
           }
           break;
         }
-        case "tool_execution_start":
+        case "tool_execution_start": {
+          try {
+            const a = e.args || e.arguments || e.input || {};
+            const v = [a?.timeout, a?.timeoutSeconds, a?.timeout_seconds].map(Number).find((x) => Number.isFinite(x) && x > 0)
+              || (Number.isFinite(Number(a?.timeoutMs ?? a?.timeout_ms)) ? Math.round(Number(a?.timeoutMs ?? a?.timeout_ms) / 1000) : 0);
+            if (v && v > 0) {
+              const m = this.#toolTimers.get(key) || new Map();
+              m.set(String(e.toolName || "tool"), { startedAt: Date.now(), timeoutSec: Number(v) });
+              this.#toolTimers.set(key, m);
+            }
+          } catch {}
           this.#sendToWs(ws, { type: "agent_status", sessionKey: key, status: "tool", detail: e.toolName });
           this.#sendToWs(ws, {
             type: "tool_call",
@@ -9135,7 +9183,9 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
             ts: Date.now(),
           });
           break;
+        }
         case "tool_execution_end": {
+          try { this.#toolTimers.get(key)?.delete(String(e.toolName || "tool")); } catch {}
           const r = e.result;
           let resultText = "";
           try {

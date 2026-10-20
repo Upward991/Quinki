@@ -536,6 +536,7 @@ const handlers: Record<string, (params: any) => Promise<any>> = {
   attachToParent: async (p) => quinkiBridge!.attachToParent(String(p.sessionKey||''), String(p.parentId||''), Array.isArray(p.ids) ? p.ids.map(String) : []),
   detachNodes: async (p) => quinkiBridge!.detachNodes(String(p.sessionKey||''), Array.isArray(p.ids) ? p.ids.map(String) : []),
   graphUndo: async (p) => quinkiBridge!.graphUndo(String(p.sessionKey||'')),
+  getToolTimers: async (p) => quinkiBridge!.getToolTimers(String(p.sessionKey||'')),
   graphRedo: async (p) => quinkiBridge!.graphRedo(String(p.sessionKey||'')),
   setSessionOrchestrator: async (p) => {
     const key = String(p?.sessionKey || '');

@@ -271,6 +271,20 @@ class BlankRow {
 /** Timer attivi dei tool call (chiave: nome|body). I ToggleBlock vengono ricreati a
  *  ogni render della history: il countdown deve sopravvivere fuori dall'istanza. */
 const ACTIVE_TIMERS = new Map<string, number>();
+function _dbg(msg: string) { try { require("node:fs").appendFileSync("/Users/andreamaddalena/Projects/Quinki/internal/.scratch/cli-dbg.log", Date.now() + " " + msg + "\n") } catch {} }
+
+function timeoutSecOf(argsText: string): number {
+  try {
+    const j = JSON.parse(argsText);
+    const v = [j?.timeout, j?.timeoutSeconds, j?.timeout_seconds].map(Number).find((x) => Number.isFinite(x) && x > 0);
+    if (v) return v;
+    const ms = Number(j?.timeoutMs ?? j?.timeout_ms);
+    return Number.isFinite(ms) && ms > 0 ? Math.round(ms / 1000) : 0;
+  } catch {
+    const m = String(argsText || "").match(/"timeout(?:_?m?s|Seconds)?"\s*:\s*(\d+)/i);
+    return m ? Number(m[1]) : 0;
+  }
+}  // nome tool -> scadenza
 
 class ToggleBlock {
   label: string;
@@ -300,12 +314,15 @@ class ToggleBlock {
     // with the first letter of the writing and the right edge matches the text.
     let head = " " + fg(col, arrow + " ") + fg(col, this.label);
     if (this.boldName) head += " " + bold(fg(col, this.boldName));
-    const _endsAt = this.timerEndsAt || ACTIVE_TIMERS.get(this.boldName + "|" + this.body) || 0;
+    const _endsAt = this.timerEndsAt || ACTIVE_TIMERS.get(this.boldName) || 0;
     if (_endsAt) {
-      const left = Math.max(0, Math.round((_endsAt - Date.now()) / 1000));
+      const rawLeft = Math.round((_endsAt - Date.now()) / 1000);
+      const over = rawLeft < 0 ? -rawLeft : 0;
+      const left = Math.abs(rawLeft);
       const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), sec = left % 60;
       const two = (n: number) => String(n).padStart(2, "0");
-      head += " " + fg(col, h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`);
+      const label = h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${two(m)}:${two(sec)}`;
+      head += " " + fg(col, over > 0 ? "+" + label : label);
     }
     // 6 ott: while you navigate this toggle (Ctrl+Alt+arrows) it INVERTS:
     // background = its own color, text = the CLI background. Each toggle has
@@ -1611,10 +1628,14 @@ export async function runTui(opts: TuiOptions): Promise<void> {
       const id = sub.slice(4);
       const has = agentToolsOf(id);
       const out: any[] = [...qHead("Agent: " + agentDisplayName(id) + " \u00b7 Tools")];
-      const toolsSorted4 = qToolsData.slice()
-        .sort((a: any, b: any) => (b?.readOnly ? 1 : 0) - (a?.readOnly ? 1 : 0))
-        .sort((a: any, b: any) => (has.includes(String(b?.name)) ? 1 : 0) - (has.includes(String(a?.name)) ? 1 : 0));
-      for (const t of toolsSorted4) { const nm = String(t?.name || ""); if (!nm) continue; out.push({ value: "att:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: t?.readOnly ? "read-only" : "" }); }
+      // assegnati prima; dentro ogni gruppo WRITE prima, READ dopo
+      const toolsSorted4 = qToolsData.slice().sort((a: any, b: any) => {
+        const ha = has.includes(String(a?.name)) ? 0 : 1;
+        const hb = has.includes(String(b?.name)) ? 0 : 1;
+        if (ha !== hb) return ha - hb;
+        return (a?.readOnly ? 1 : 0) - (b?.readOnly ? 1 : 0);
+      });
+      for (const t of toolsSorted4) { const nm = String(t?.name || ""); if (!nm) continue; out.push({ value: "att:" + id + ":" + nm, label: (has.includes(nm) ? "\u25cf " : "\u25cb ") + nm, description: (t?.readOnly ? "read" : "write") }); }
       return out;
     }
     if (sub.startsWith("amc:")) {
@@ -2591,6 +2612,17 @@ const readProvidersCfg = (): any => {
     if (timerTick) return;
     timerTick = setInterval(() => {
       try {
+        // FONTE VERA: il motore sa quali tool call stanno girando e con che timeout.
+        try {
+          const _call = (globalThis as any).__sidecarCall;
+          Promise.resolve(_call ? _call("getToolTimers", { sessionKey: currentKey }) : null).then((r: any) => {
+            const t = r?.timers || r || {};
+            for (const [nm, v] of Object.entries<any>(t)) {
+              if (v?.startedAt && v?.timeoutSec) ACTIVE_TIMERS.set(nm, v.startedAt + v.timeoutSec * 1000);
+            }
+            ui.requestRender();
+          }).catch(() => {});
+        } catch {}
         if (!toggles.some((t: any) => t.timerEndsAt) && ACTIVE_TIMERS.size === 0) { clearInterval(timerTick); timerTick = null; return; }
         ui.requestRender();
       } catch { clearInterval(timerTick); timerTick = null; }
@@ -3931,7 +3963,8 @@ const readProvidersCfg = (): any => {
           if (toSec > 0) {
             const _ends = Date.now() + toSec * 1000;
             _tc.timerEndsAt = _ends;
-            ACTIVE_TIMERS.set(String(name) + "|" + String(body), _ends);
+            ACTIVE_TIMERS.set(String(name), _ends);
+            _dbg("timer set (in-process) " + name + " " + toSec);
             startTimerTick();
           }
         } catch {}
@@ -3949,7 +3982,7 @@ const readProvidersCfg = (): any => {
       } else if (e?.type === "tool_execution_end") {
         try {
           const _nm = String(e.toolName || e.name || (e as any).tool?.name || "tool");
-          for (const k of [...ACTIVE_TIMERS.keys()]) if (k.startsWith(_nm + "|")) ACTIVE_TIMERS.delete(k);
+          ACTIVE_TIMERS.delete(_nm);
           const last = [...toggles].reverse().find((t: any) => t.timerEndsAt); if (last) last.timerEndsAt = 0;
         } catch {}
         const name = e.toolName || e.name || e.tool?.name || "tool";
@@ -4177,13 +4210,25 @@ const readProvidersCfg = (): any => {
       if (!last || last.t !== "text") kids.push({ t: "text", v: "" });
       kids[kids.length - 1].v += String(p.delta || p.content || "");
     } else if (t === "toolcall_start") {
+      // Il motore sa il timeout: il tick interroga getToolTimers e riempie il countdown.
+      try { startTimerTick(); } catch {}
       kids.push({ t: "toggle", v: new ToggleBlock({ label: "Tool call", boldName: String(p.toolName || p.delta || "tool"), color: C.toolCall, body: "" }) });
     } else if (t === "toolcall_delta") {
       const c = kids[kids.length - 1];
-      if (c && c.t === "toggle") c.v.setBody(String(c.v.body || "") + String(p.delta || p.content || ""));
+      if (c && c.t === "toggle") {
+        c.v.setBody(String(c.v.body || "") + String(p.delta || p.content || ""));
+        const sec = timeoutSecOf(String(c.v.body || ""));
+        if (sec > 0 && !ACTIVE_TIMERS.has(c.v.boldName)) { ACTIVE_TIMERS.set(c.v.boldName, Date.now() + sec * 1000); _dbg("timer set (delta) " + c.v.boldName + " " + sec); startTimerTick(); }
+      }
     } else if (t === "toolcall_end") {
-      // Arguments complete (they already accumulated through the deltas).
+      // Argomenti completi: ultima occasione per leggere il timeout.
+      const c = kids[kids.length - 1];
+      if (c && c.t === "toggle") {
+        const sec = timeoutSecOf(String(c.v.body || ""));
+        if (sec > 0 && !ACTIVE_TIMERS.has(c.v.boldName)) { ACTIVE_TIMERS.set(c.v.boldName, Date.now() + sec * 1000); _dbg("timer set (end) " + c.v.boldName + " " + sec); startTimerTick(); }
+      }
     } else if (t === "tool_result") {
+      try { ACTIVE_TIMERS.delete(String(p.toolName || "tool")); } catch {}
       kids.push({
         t: "toggle",
         v: new ToggleBlock({

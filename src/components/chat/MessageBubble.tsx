@@ -424,7 +424,9 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
     const t = setInterval(() => setNowTick(Date.now()), 500)
     return () => clearInterval(t)
   }, [countdownSec])
-  const remaining = countdownSec ? Math.max(0, countdownSec - Math.floor(((nowTick - (startedAt || nowTick)) / 1000))) : 0
+  const leftRaw = countdownSec ? countdownSec - Math.floor(((nowTick - (startedAt || nowTick)) / 1000)) : 0
+  const remaining = Math.max(0, leftRaw)
+  const overrun = leftRaw < 0 ? -leftRaw : 0
   const mmss = (t: number) => {
     const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60
     const two = (n: number) => String(n).padStart(2, '0')
@@ -453,7 +455,7 @@ function GenericToggle({ label, content, baseColor, baseColorRgb, isItalic, bold
           <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color }}>{label}{boldLabel && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 600, color }}>{' '}{boldLabel}</span>}</span>
           {countdownSec > 0 && (
             <span title={`Timeout ${countdownSec}s`} style={{ fontFamily: 'var(--font-code)', fontSize: '13px', fontWeight: 400, marginLeft: 2, color, opacity: 1, flexShrink: 0, whiteSpace: 'nowrap' }}>
-              {mmss(remaining)}
+              {overrun > 0 ? '+' + mmss(overrun) : mmss(remaining)}
             </span>
           )}
           {preview && <span style={{ fontFamily: 'var(--font-code)', fontSize: '13px', color: 'var(--q-text-tertiary)', opacity: 0.6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{preview}</span>}
