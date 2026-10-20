@@ -5823,20 +5823,6 @@ Read this file to view it.` }] };
         if (cut >= 0) base = base.substring(0, cut);
         base = base + note;
       }
-      // === I TUOI TOOL (autorevole, generato QUI ad ogni turno) ===
-      // Gli agenti andavano a leggere i file/config per capire che tool avessero: questa
-      // sezione lo rende inutile e sbagliato. Sempre presente, per ogni agente, senza prompt.
-      try {
-        if (typeof base === "string" && base.length > 0) {
-          const list = (names || []).slice().sort();
-          if (list.length) {
-            base += `\n\n**Your active tools (authoritative — generated from THIS running session, ${list.length}):**\n`;
-            base += list.join(", ");
-            base += `\n\nThis list is the single source of truth for what you can call right now.`;
-            base += `\nNever inspect app files, configs, logs or the codebase to discover your tools, skills or permissions: this list IS the answer. If a tool is not listed here, you do not have it in this session.`;
-          }
-        }
-      } catch {}
       if (typeof base === "string" && base.length > 0) {
         quinkiSetSystemPrompt((pi as any).agent, base);
       }
@@ -6511,6 +6497,29 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       this.logDebug("manage-tools-error", { sessionKey: sk, error: String(e?.message || e) });
       return [];
     }
+  }
+
+  /** Inventario dei tool ATTIVI in questa sessione (pull): gli agenti lo chiedono qui
+   *  invece di leggere file/config con bash. Un solo tool, nessun testo nel prompt. */
+  #buildToolsInventoryTool(sk: string): any {
+    const self = this;
+    return defineTool({
+      name: "tools",
+      label: "My tools",
+      description: "List the tools you ACTUALLY have in this session (native, custom, MCP), with the MCP server for each one. Use this instead of reading app files or configs.",
+      parameters: Type.Object({ filter: Type.Optional(Type.String({ description: "Optional text filter" })) }),
+      async execute(_id: string, p: any) {
+        try {
+          const pi: any = self.#active.get(sk);
+          const active: string[] = (() => { try { return pi?.getActiveToolNames?.() || []; } catch { return []; } })();
+          const mcp = (self.#mcpToolNames.get(sk) || []).map((e) => ({ name: e.name, server: e.serverId }));
+          const f = String(p?.filter || "").toLowerCase();
+          const list = active.filter((n) => !f || n.toLowerCase().includes(f)).sort();
+          return { content: [{ type: "text" as const, text: JSON.stringify({ active: list, mcp, count: list.length,
+            note: "This is the authoritative list for THIS session. Do not inspect files or configs to discover your tools." }, null, 2) }] };
+        } catch (e: any) { return { content: [{ type: "text" as const, text: `Error: ${e?.message || e}` }], isError: true }; }
+      },
+    });
   }
 
   #buildMarketTool(): any {
@@ -7730,6 +7739,8 @@ Quinki is a Tauri 2 + React desktop app with a single compiled sidecar engine; t
       // Always register skill tool (so agents can list/search/load skills)
       const skillTool = this.#buildSkillTool(() => this.#active.get(sk));
       if (skillTool) customTools.push(skillTool);
+      // inventario dei tool: sempre disponibile, così nessuno va a leggere i file
+      try { const t = this.#buildToolsInventoryTool(sk); if (t) customTools.push(t); } catch {}
       // TOOL DI GESTIONE: solo quelli abilitati nel config dell'agente corrente
       try {
         const _mt = this.#manageToolsFor(sk, resolvedAgentId || "");

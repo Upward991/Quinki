@@ -538,6 +538,7 @@ export function createAgentHandlers(agentDir: string, getCwd: () => string) {
         { name: "screenshot", description: "Capture a screenshot of the Quinki app window (saved as PNG — the agent can read it to see the UI)", readOnly: true },
         { name: "market", description: "Use the Quinki Market: browse the catalog, search community items, install/uninstall packages and manage publishing", readOnly: true },
         { name: "models_list", description: "List available models (id + provider) to choose real ids", readOnly: true },
+        { name: "tools", description: "List the tools you ACTUALLY have in this session (native, custom, MCP) — use this instead of reading files", readOnly: true },
       ],
     }),
     getGlobalConfig: async () => ({ config: readGlobalConfig() }),
