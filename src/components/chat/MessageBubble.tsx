@@ -55,12 +55,14 @@ function highlightChildren(children: React.ReactNode, query: string, activeOcc: 
 interface MessageBubbleProps {
   message: Message
   onCopy?: (text: string) => void
+  /** Il turno è in corso NELLA SESSIONE (anche dopo essere rientrati nella chat) */
+  sessionStreaming?: boolean
 }
 
-export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery, msgIndex, activeMatchMsgIdx, activeMatchOccurrence, isDateMatch }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message, onCopy, searchQuery, msgIndex, activeMatchMsgIdx, activeMatchOccurrence, isDateMatch, sessionStreaming }: MessageBubbleProps) {
   if (message.role === 'user') return <UserMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} isDateMatch={isDateMatch} />
   if (message.role === 'system') return <SystemMessage message={message} />
-  return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} isDateMatch={isDateMatch} />
+  return <AssistantMessage message={message} onCopy={onCopy} searchQuery={searchQuery} activeOcc={msgIndex === activeMatchMsgIdx ? activeMatchOccurrence : -1} isDateMatch={isDateMatch} sessionStreaming={sessionStreaming} />
 })
 
 // ── System message (Long Horizon) ──
@@ -256,14 +258,14 @@ function renderBlocks(blocks: any[], opts: { isError?: boolean; isStreaming?: bo
 }
 
 // ── Assistant message ──
-function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number; isDateMatch?: boolean }) {
+function AssistantMessage({ message, onCopy, searchQuery, activeOcc, isDateMatch, sessionStreaming }: { message: Message; onCopy?: (t: string) => void; searchQuery?: string; activeOcc?: number; isDateMatch?: boolean; sessionStreaming?: boolean }) {
   const isError = message.isError
 
   return (
     <div className="assistant-content" style={{ maxWidth: 'var(--spacing-chat-max)', minWidth: 0, animation: 'materialize 400ms cubic-bezier(0.16, 1, 0.3, 1)', userSelect: 'text', WebkitUserSelect: 'text', border: isDateMatch ? '2px solid var(--q-search-highlight-bg)' : 'none', borderRadius: isDateMatch ? 'var(--radius-md)' : '0', padding: isDateMatch ? '8px' : '0' }}>
       {/* Blocchi cronologici: toggles + testo nell'ORDINE reale. Footer dopo OGNI turno testo completato */}
       {(message as any).blocks?.length > 0
-        ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, thinkingTranslated: (message as any).thinkingTranslated, onCopy, searchQuery, activeOcc })
+        ? renderBlocks((message as any).blocks, { isError, isStreaming: !!message.isStreaming || !!sessionStreaming, timestamp: message.timestamp, agentName: message.agentName, agentModel: message.agentModel, thinkingLevel: message.thinkingLevel, thinkingTranslated: (message as any).thinkingTranslated, onCopy, searchQuery, activeOcc })
         : <>
             {normalizeThinking(message.thinking)?.map((t, i) => <ThinkingToggle key={`t-${i}`} content={t.content || ""} streaming={message.isStreaming} />)}
             {message.toolCalls?.map((tc, i) => <ToolToggle key={`tc-${i}`} label="Tool call" toolName={tc.name} body={tc.input} isError={false} running={!!message.isStreaming && (message.toolResults?.length || 0) <= i} startedAt={Date.parse(String(message.timestamp)) || undefined} />)}

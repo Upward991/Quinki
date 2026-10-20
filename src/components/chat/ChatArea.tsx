@@ -61,7 +61,7 @@ function TaskResultToggle({ run, sessionKey, defaultOpen, showClip, onResize }: 
           ) : null}
           {run.messages.map((msg: any, mIdx: number) => (
             <div key={msg.id + '-' + mIdx} style={{ marginBottom: '12px' }}>
-              <MessageBubble message={msg} onCopy={NOOP_COPY} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
+              <MessageBubble message={msg} sessionStreaming={props.streaming && mIdx === messages.length - 1} onCopy={NOOP_COPY} searchQuery={''} msgIndex={mIdx} activeMatchMsgIdx={-1} activeMatchOccurrence={-1} isDateMatch={false} />
             </div>
           ))}
         </div>
